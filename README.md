@@ -96,6 +96,13 @@ Tournoi
 - **PUT** `/api/tournaments/:id` : Mettre à jour un tournoi
 - **DELETE** `/api/tournaments/:id` : Supprimer un tournoi
 
+## Jeux
+
+- **GET** `/api/tournaments` : Récupérer la liste des jeux
+- **POST** `/api/tournaments` : Créer un nouveau jeu
+- **PUT** `/api/tournaments/:id` : Mettre à jour un jeu
+- **DELETE** `/api/tournaments/:id` : Supprimer un jeu
+
 ## Gestion des Rôles
 
 ### Admin

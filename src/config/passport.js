@@ -1,4 +1,3 @@
-// filepath: d:\Dev\ACS\acs-backend\src\config\passport.js
 const passport = require("passport");
 const DiscordStrategy = require("passport-discord").Strategy;
 const User = require("../models/User");

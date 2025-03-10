@@ -1,4 +1,3 @@
-// filepath: d:\Dev\ACS\acs-backend\src\routes\authRoutes.js
 const express = require("express");
 const passport = require("passport");
 const {
@@ -15,12 +14,24 @@ router.get("/profile", protect, getProfile);
 
 // Discord OAuth routes
 router.get("/discord", passport.authenticate("discord"));
+
 router.get(
   "/discord/callback",
   passport.authenticate("discord", {
     failureRedirect: "/login",
-    successRedirect: "/",
-  })
+  }),
+  (req, res) => {
+    // Redirige vers le frontend après une connexion réussie
+    res.redirect("http://localhost:5173/");
+  }
 );
+
+router.get("/me", (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json(req.user);
+  } else {
+    res.status(401).json({ message: "Not authenticated" });
+  }
+});
 
 module.exports = router;

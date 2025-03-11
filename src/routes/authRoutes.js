@@ -22,7 +22,8 @@ router.get(
   }),
   (req, res) => {
     // Redirige vers le frontend après une connexion réussie
-    res.redirect("http://localhost:5173/");
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    res.redirect(frontendUrl);
   }
 );
 

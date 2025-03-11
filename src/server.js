@@ -27,7 +27,7 @@ app.use(
     saveUninitialized: true,
     cookie: {
       maxAge: 60000 * 60 * 24 * 7, // 7 jours
-      httpOnly: false,
+      httpOnly: true, // Empêcher l'accès au cookie côté client
       secure: process.env.NODE_ENV === "production", // Utiliser des cookies sécurisés en production
       sameSite: "lax", // Protéger contre les attaques CSRF
     },

@@ -6,6 +6,7 @@ const {
   getProfile,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 router.post("/register", register);
@@ -21,6 +22,19 @@ router.get(
     failureRedirect: "/login",
   }),
   (req, res) => {
+    // Générer un token JWT
+    const token = jwt.sign({ id: req.user.id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    // Stocker le token dans un cookie HTTP-only
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 3600000, // 1 heure
+    });
+
     // Redirige vers le frontend après une connexion réussie
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     res.redirect(frontendUrl);

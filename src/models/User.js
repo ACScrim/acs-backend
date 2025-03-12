@@ -13,6 +13,12 @@ const userSchema = new mongoose.Schema({
     bestScore: { type: Number },
     pointsRatio: { type: Number },
   },
+  accessToken: {
+    type: String,
+  },
+  refreshToken: {
+    type: String,
+  },
 });
 
 userSchema.pre("save", async function (next) {

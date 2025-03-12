@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const passport = require("passport");
 const session = require("express-session");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/authRoutes");
 const playerRoutes = require("./routes/playerRoutes");
 const tournamentRoutes = require("./routes/tournamentRoutes");
@@ -20,6 +21,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 app.use(
   session({
     secret: process.env.JWT_SECRET,

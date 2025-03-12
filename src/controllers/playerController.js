@@ -1,39 +1,51 @@
 const Player = require("../models/Player");
 
+// Récupérer la liste des joueurs
 exports.getPlayers = async (req, res) => {
-  const players = await Player.find().populate("game");
-  res.json(players);
-};
-
-exports.addPlayer = async (req, res) => {
-  const { name, tier, game } = req.body;
-  const player = new Player({ name, tier, game });
-  await player.save();
-  res.status(201).json(player);
-};
-
-exports.updatePlayer = async (req, res) => {
-  const player = await Player.findById(req.params.id);
-
-  if (player) {
-    player.name = req.body.name || player.name;
-    player.tier = req.body.tier || player.tier;
-    player.game = req.body.game || player.game;
-    player.totalPoints = req.body.totalPoints || player.totalPoints;
-    const updatedPlayer = await player.save();
-    res.json(updatedPlayer);
-  } else {
-    res.status(404).json({ message: "Player not found" });
+  try {
+    const players = await Player.find();
+    res.json(players);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la récupération des joueurs" });
   }
 };
 
-exports.deletePlayer = async (req, res) => {
-  const player = await Player.findById(req.params.id);
+// Ajouter un joueur
+exports.addPlayer = async (req, res) => {
+  const { username } = req.body;
 
-  if (player) {
-    await player.remove();
-    res.json({ message: "Player removed" });
-  } else {
-    res.status(404).json({ message: "Player not found" });
+  try {
+    // Vérifier si un joueur avec le même username existe déjà (insensible à la casse)
+    const existingPlayer = await Player.findOne({
+      username: { $regex: new RegExp(`^${username}$`, "i") },
+    });
+    if (existingPlayer) {
+      return res.status(400).json({ message: "Le joueur existe déjà" });
+    }
+
+    const player = new Player({ username });
+    await player.save();
+    res.status(201).json(player);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la création du joueur" });
+  }
+};
+
+// Supprimer un joueur
+exports.deletePlayer = async (req, res) => {
+  try {
+    const player = await Player.findById(req.params.id);
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+    await Player.deleteOne({ _id: req.params.id });
+    res.json({ message: "Joueur supprimé" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression du joueur:", error);
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la suppression du joueur" });
   }
 };

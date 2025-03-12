@@ -1,62 +1,70 @@
-// filepath: d:\Dev\ACS\acs-backend\src\controllers\authController.js
-const User = require("../models/User");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
+const Player = require("../models/Player");
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+exports.discordCallback = async (req, res) => {
+  console.log("User authenticated via Discord:", req.user);
+
+  req.logIn(req.user, async (err) => {
+    if (err) {
+      console.error("Erreur lors du login de l'utilisateur:", err);
+      return res.status(500).json({ message: "Erreur d'authentification" });
+    }
+
+    // Ajouter ou mettre à jour le joueur dans la base Player
+    try {
+      const normalizedUsername = req.user.username.toLowerCase();
+      const existingPlayer = await Player.findOne({
+        username: { $regex: new RegExp(`^${normalizedUsername}$`, "i") },
+      });
+
+      if (existingPlayer) {
+        existingPlayer.discordId = req.user.discordId;
+        existingPlayer.userId = req.user.id;
+        await existingPlayer.save();
+      } else {
+        const player = new Player({
+          username: req.user.username,
+          userId: req.user.id,
+          discordId: req.user.discordId,
+        });
+        await player.save();
+      }
+    } catch (error) {
+      console.error(
+        "Erreur lors de la création ou mise à jour du joueur:",
+        error
+      );
+    }
+
+    // Redirige vers le frontend après une connexion réussie
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    res.redirect(frontendUrl);
+  });
 };
 
-exports.register = async (req, res) => {
-  const { username, email, password } = req.body;
-  const userExists = await User.findOne({ email });
-
-  if (userExists) {
-    return res.status(400).json({ message: "User already exists" });
-  }
-
-  const user = await User.create({ username, email, password });
-
-  if (user) {
-    res.status(201).json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      token: generateToken(user._id),
-    });
+exports.getMe = (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json(req.user);
   } else {
-    res.status(400).json({ message: "Invalid user data" });
+    res.status(401).json({ message: "Not authenticated" });
   }
 };
 
-exports.login = async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
-
-  if (user && (await user.matchPassword(password))) {
-    res.json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      token: generateToken(user._id),
+// Fonction de déconnexion
+exports.logout = (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      console.error("Erreur lors de la déconnexion:", err);
+      return res.status(500).json({ message: "Erreur lors de la déconnexion" });
+    }
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Erreur lors de la destruction de la session:", err);
+        return res
+          .status(500)
+          .json({ message: "Erreur lors de la destruction de la session" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "Déconnexion réussie" });
     });
-  } else {
-    res.status(401).json({ message: "Invalid email or password" });
-  }
-};
-
-exports.getProfile = async (req, res) => {
-  const user = await User.findById(req.user.id);
-
-  if (user) {
-    res.json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      stats: user.stats,
-    });
-  } else {
-    res.status(404).json({ message: "User not found" });
-  }
+  });
 };

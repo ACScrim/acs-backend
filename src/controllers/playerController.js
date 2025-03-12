@@ -49,3 +49,17 @@ exports.deletePlayer = async (req, res) => {
       .json({ message: "Erreur lors de la suppression du joueur" });
   }
 };
+
+exports.searchPlayers = async (req, res) => {
+  try {
+    const { search } = req.query;
+    const players = await Player.find({
+      username: { $regex: search, $options: "i" },
+    });
+    res.status(200).json(players);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la recherche des joueurs", error });
+  }
+};

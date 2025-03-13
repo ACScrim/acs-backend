@@ -1,19 +1,12 @@
-// filepath: d:\Dev\ACS\acs-backend\src\models\Tournament.js
 const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
 
-const tournamentSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  game: { type: mongoose.Schema.Types.ObjectId, ref: "Game", required: true },
-  date: { type: Date, required: true },
-  players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
-  teams: [
-    {
-      name: { type: String, required: true },
-      players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
-      score: { type: Number, default: 0 },
-    },
-  ],
+const playerSchema = new Schema({
+  username: { type: String, required: true },
+  userId: { type: Schema.Types.ObjectId, ref: "User", default: null },
+  discordId: { type: String, default: null },
 });
 
-const Tournament = mongoose.model("Tournament", tournamentSchema);
-module.exports = Tournament;
+const Player = mongoose.model("Player", playerSchema);
+
+module.exports = Player;

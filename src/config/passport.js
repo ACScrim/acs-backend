@@ -18,7 +18,14 @@ passport.use(
             username: profile.username,
             email: profile.email,
             discordId: profile.id,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
           });
+        } else {
+          // Mettre à jour les tokens si l'utilisateur existe déjà
+          user.accessToken = accessToken;
+          user.refreshToken = refreshToken;
+          await user.save();
         }
         done(null, user);
       } catch (err) {
@@ -29,14 +36,16 @@ passport.use(
 );
 
 passport.serializeUser((user, done) => {
+  console.log("Serializing user:", user.id);
   done(null, user.id);
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
+    console.log("Deserializing user with ID:", id);
     const user = await User.findById(id);
     done(null, user);
   } catch (err) {
-    done(err, null);
+    done(err);
   }
 });

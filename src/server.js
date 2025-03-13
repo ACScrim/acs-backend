@@ -3,12 +3,14 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const passport = require("passport");
 const session = require("express-session");
+const MongoStore = require("connect-mongo");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/authRoutes");
 const playerRoutes = require("./routes/playerRoutes");
 const tournamentRoutes = require("./routes/tournamentRoutes");
 const gameRoutes = require("./routes/gameRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -26,9 +28,14 @@ app.use(
   session({
     secret: process.env.JWT_SECRET,
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      collectionName: "sessions",
+      ttl: 3 * 24 * 60 * 60, // 3 jours en secondes
+    }),
     cookie: {
-      maxAge: 60000 * 60 * 24 * 7, // 7 jours
+      maxAge: 3 * 24 * 60 * 60 * 1000, // 3 jours en millisecondes
       httpOnly: true, // Empêcher l'accès au cookie côté client
       secure: process.env.NODE_ENV === "production", // Utiliser des cookies sécurisés en production
       sameSite: "lax", // Protéger contre les attaques CSRF
@@ -51,6 +58,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/players", playerRoutes);
 app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/games", gameRoutes);
+app.use("/api/users", userRoutes);
 
 // Connect to MongoDB
 mongoose

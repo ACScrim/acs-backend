@@ -6,6 +6,7 @@ const {
   getTournaments,
   getTournamentById,
   getTournamentsByGame,
+  finishTournament,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -22,5 +23,5 @@ router
   .delete(protect, admin, deleteTournament);
 
 router.route("/game/:gameId").get(protect, getTournamentsByGame);
-
+router.route("/:id/finish").put(protect, admin, finishTournament);
 module.exports = router;

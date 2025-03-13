@@ -6,18 +6,12 @@ exports.createTournament = async (req, res) => {
   try {
     const { name, game, date, discordChannelName, players } = req.body;
 
-    // Récupérer les informations des joueurs à partir de leurs IDs
-    const playerDetails = await Player.find({ _id: { $in: players } });
-
     const newTournament = new Tournament({
       name,
       game,
       date,
       discordChannelName,
-      players: playerDetails.map((player) => ({
-        _id: player._id,
-        username: player.username,
-      })), // Utiliser les objets complets des joueurs
+      players, // Stockez les IDs des joueurs directement
     });
 
     await newTournament.save();
@@ -37,7 +31,14 @@ exports.updateTournament = async (req, res) => {
 
     const updatedTournament = await Tournament.findByIdAndUpdate(
       id,
-      { name, date, discordChannelName, players, teams, winningTeam },
+      {
+        name,
+        date,
+        discordChannelName,
+        players, // Stockez les IDs des joueurs directement
+        teams,
+        winningTeam,
+      },
       { new: true }
     );
 
@@ -100,5 +101,24 @@ exports.getTournamentsByGame = async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la récupération des tournois", error });
+  }
+};
+
+exports.finishTournament = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { winningTeamId } = req.body;
+
+    const updatedTournament = await Tournament.findByIdAndUpdate(
+      id,
+      { finished: true, winningTeam: winningTeamId },
+      { new: true }
+    );
+
+    res.status(200).json(updatedTournament);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la finalisation du tournoi", error });
   }
 };

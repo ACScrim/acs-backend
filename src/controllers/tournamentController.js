@@ -127,9 +127,6 @@ exports.generateTeams = async (req, res) => {
   try {
     const { id } = req.params;
     const { numTeams } = req.body;
-
-    console.log("id", id);
-    console.log("numTeams", numTeams);
     const tournament = await Tournament.findById(id).populate("players");
 
     if (!tournament) {
@@ -158,5 +155,35 @@ exports.generateTeams = async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la génération des équipes", error });
+  }
+};
+
+// Mettre à jour le score d'une équipe
+exports.updateTeamScore = async (req, res) => {
+  try {
+    const { id, teamId } = req.params;
+    const { score } = req.body;
+
+    const tournament = await Tournament.findById(id);
+
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    const team = tournament.teams.id(teamId);
+
+    if (!team) {
+      return res.status(404).json({ message: "Équipe non trouvée" });
+    }
+
+    team.score = score;
+    await tournament.save();
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la mise à jour du score de l'équipe",
+      error,
+    });
   }
 };

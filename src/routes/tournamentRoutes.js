@@ -7,6 +7,7 @@ const {
   getTournamentById,
   getTournamentsByGame,
   finishTournament,
+  generateTeams,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -24,4 +25,7 @@ router
 
 router.route("/game/:gameId").get(protect, getTournamentsByGame);
 router.route("/:id/finish").put(protect, admin, finishTournament);
+
+router.route("/:id/generate-teams").post(protect, admin, generateTeams);
+
 module.exports = router;

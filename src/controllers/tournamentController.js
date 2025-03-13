@@ -122,3 +122,41 @@ exports.finishTournament = async (req, res) => {
       .json({ message: "Erreur lors de la finalisation du tournoi", error });
   }
 };
+
+exports.generateTeams = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { numTeams } = req.body;
+
+    console.log("id", id);
+    console.log("numTeams", numTeams);
+    const tournament = await Tournament.findById(id).populate("players");
+
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    const players = [...tournament.players];
+    const teams = [];
+
+    for (let i = 0; i < numTeams; i++) {
+      teams.push({ name: `Équipe ${i + 1}`, players: [] });
+    }
+
+    while (players.length > 0) {
+      for (let i = 0; i < teams.length && players.length > 0; i++) {
+        const randomIndex = Math.floor(Math.random() * players.length);
+        teams[i].players.push(players.splice(randomIndex, 1)[0]);
+      }
+    }
+
+    tournament.teams = teams;
+    await tournament.save();
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la génération des équipes", error });
+  }
+};

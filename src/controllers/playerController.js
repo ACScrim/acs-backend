@@ -14,6 +14,8 @@ exports.getPlayers = async (req, res) => {
 
 // Récupérer un joueur par son ID
 exports.getPlayerById = async (req, res) => {
+  console.log("getplayerbyid");
+
   try {
     const player = await Player.findById(req.params.id);
     if (!player) {
@@ -67,12 +69,18 @@ exports.deletePlayer = async (req, res) => {
 
 exports.searchPlayers = async (req, res) => {
   try {
+    console.log("Recherche des joueurs commencée");
     const { search } = req.query;
+    console.log("Paramètre de recherche reçu:", search);
+
     const players = await Player.find({
       username: { $regex: search, $options: "i" },
     });
+
+    console.log("Joueurs trouvés:", players);
     res.status(200).json(players);
   } catch (error) {
+    console.error("Erreur lors de la recherche des joueurs:", error);
     res
       .status(500)
       .json({ message: "Erreur lors de la recherche des joueurs", error });

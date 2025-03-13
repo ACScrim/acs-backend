@@ -66,10 +66,11 @@ exports.deleteTournament = async (req, res) => {
 exports.getTournaments = async (req, res) => {
   try {
     const tournaments = await Tournament.find().populate(
-      "game players teams.players winningTeam"
+      "game players teams.players"
     );
     res.status(200).json(tournaments);
   } catch (error) {
+    console.error("Erreur lors de la récupération des tournois:", error);
     res
       .status(500)
       .json({ message: "Erreur lors de la récupération des tournois", error });
@@ -80,7 +81,7 @@ exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players teams.players winningTeam"
+      "game players teams.players"
     );
     res.status(200).json(tournament);
   } catch (error) {
@@ -94,7 +95,7 @@ exports.getTournamentsByGame = async (req, res) => {
   try {
     const { gameId } = req.params;
     const tournaments = await Tournament.find({ game: gameId }).populate(
-      "game players teams.players winningTeam"
+      "game players teams.players"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -109,13 +110,21 @@ exports.finishTournament = async (req, res) => {
     const { id } = req.params;
     const { winningTeamId } = req.body;
 
-    const updatedTournament = await Tournament.findByIdAndUpdate(
-      id,
-      { finished: true, winningTeam: winningTeamId },
-      { new: true }
-    );
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
 
-    res.status(200).json(updatedTournament);
+    const winningTeam = tournament.teams.id(winningTeamId);
+    if (!winningTeam) {
+      return res.status(404).json({ message: "Équipe gagnante non trouvée" });
+    }
+
+    tournament.finished = true;
+    tournament.winningTeam = winningTeam;
+    await tournament.save();
+
+    res.status(200).json(tournament);
   } catch (error) {
     res
       .status(500)

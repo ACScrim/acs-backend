@@ -1,5 +1,5 @@
 const Player = require("../models/Player");
-
+const User = require("../models/User");
 // Récupérer la liste des joueurs
 exports.getPlayers = async (req, res) => {
   try {
@@ -84,5 +84,53 @@ exports.searchPlayers = async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la recherche des joueurs", error });
+  }
+};
+
+// Endpoint pour synchroniser les joueurs avec les utilisateurs
+exports.synchronizePlayers = async (req, res) => {
+  try {
+    const users = await User.find();
+    const players = await Player.find();
+
+    for (const player of players) {
+      const normalizedUsername = player.username.toLowerCase();
+      const user = users.find(
+        (user) => user.username.toLowerCase() === normalizedUsername
+      );
+
+      if (user) {
+        player.discordId = user.discordId;
+        player.userId = user._id;
+        await player.save();
+      }
+    }
+
+    res.status(200).json({ message: "Synchronisation réussie" });
+  } catch (error) {
+    console.error("Erreur lors de la synchronisation:", error);
+    res.status(500).json({ message: "Erreur lors de la synchronisation" });
+  }
+};
+
+// Endpoint pour mettre à jour le nom d'utilisateur d'un joueur
+exports.updatePlayerUsername = async (req, res) => {
+  const { id, username } = req.body;
+
+  try {
+    const player = await Player.findById(id);
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+
+    player.username = username;
+    await player.save();
+
+    res.status(200).json(player);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du nom d'utilisateur:", error);
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la mise à jour du nom d'utilisateur" });
   }
 };

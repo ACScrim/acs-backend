@@ -8,7 +8,7 @@ const {
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
 
-router.route("/").get(protect, getGames).post(protect, admin, addGame);
+router.route("/").get(getGames).post(protect, admin, addGame);
 
 router
   .route("/:id")

@@ -1,6 +1,7 @@
 const Tournament = require("../models/Tournament");
 const Player = require("../models/Player");
 const Game = require("../models/Game");
+const User = require("../models/User");
 
 exports.createTournament = async (req, res) => {
   try {
@@ -194,5 +195,42 @@ exports.updateTeamScore = async (req, res) => {
       message: "Erreur lors de la mise à jour du score de l'équipe",
       error,
     });
+  }
+};
+exports.registerPlayer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    // Chercher l'utilisateur correspondant à l'ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // Chercher le joueur correspondant à l'ID de l'utilisateur
+    const player = await Player.findOne({ userId: userId });
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+
+    // Chercher le tournoi correspondant à l'ID
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    // Ajouter le joueur au tournoi s'il n'est pas déjà inscrit
+    if (!tournament.players.includes(player._id)) {
+      tournament.players.push(player._id);
+      await tournament.save();
+    }
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    console.error("Erreur lors de l'inscription au tournoi:", error);
+    res
+      .status(500)
+      .json({ message: "Erreur lors de l'inscription au tournoi", error });
   }
 };

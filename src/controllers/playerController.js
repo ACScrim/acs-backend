@@ -1,5 +1,6 @@
 const Player = require("../models/Player");
 const User = require("../models/User");
+const Tournament = require("../models/Tournament");
 // Récupérer la liste des joueurs
 exports.getPlayers = async (req, res) => {
   try {
@@ -14,8 +15,6 @@ exports.getPlayers = async (req, res) => {
 
 // Récupérer un joueur par son ID
 exports.getPlayerById = async (req, res) => {
-  console.log("getplayerbyid");
-
   try {
     const player = await Player.findById(req.params.id);
     if (!player) {
@@ -69,15 +68,12 @@ exports.deletePlayer = async (req, res) => {
 
 exports.searchPlayers = async (req, res) => {
   try {
-    console.log("Recherche des joueurs commencée");
     const { search } = req.query;
-    console.log("Paramètre de recherche reçu:", search);
 
     const players = await Player.find({
       username: { $regex: search, $options: "i" },
     });
 
-    console.log("Joueurs trouvés:", players);
     res.status(200).json(players);
   } catch (error) {
     console.error("Erreur lors de la recherche des joueurs:", error);
@@ -132,5 +128,109 @@ exports.updatePlayerUsername = async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la mise à jour du nom d'utilisateur" });
+  }
+};
+
+// Endpoint pour récupérer le classement des joueurs
+exports.getPlayerRankings = async (req, res) => {
+  try {
+    const players = await Player.find();
+
+    const tournaments = await Tournament.find().populate("teams.players");
+
+    const playerRankings = players.map((player) => {
+      const playerTournaments = tournaments.filter((tournament) =>
+        tournament.teams.some((team) =>
+          team.players.some((p) => p._id.equals(player._id))
+        )
+      );
+
+      const totalPoints = playerTournaments.reduce((sum, tournament) => {
+        const playerTeam = tournament.teams.find((team) =>
+          team.players.some((p) => p._id.equals(player._id))
+        );
+        const points = playerTeam ? playerTeam.score : 0; // Assurez-vous d'utiliser la bonne propriété
+        return sum + points;
+      }, 0);
+
+      const totalVictories = playerTournaments.filter(
+        (tournament) =>
+          tournament.winningTeam &&
+          tournament.winningTeam.players.some((p) => p._id.equals(player._id))
+      ).length;
+
+      return {
+        playerId: player._id,
+        username: player.username,
+        totalPoints,
+        totalTournaments: playerTournaments.length,
+        totalVictories,
+      };
+    });
+
+    // Trier les joueurs par points décroissants
+    playerRankings.sort((a, b) => b.totalPoints - a.totalPoints);
+
+    res.status(200).json(playerRankings);
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération du classement des joueurs:",
+      error
+    );
+    res.status(500).json({
+      message: "Erreur lors de la récupération du classement des joueurs",
+      error,
+    });
+  }
+};
+
+// Endpoint pour récupérer le classement des joueurs par jeu
+exports.getPlayerRankingsByGame = async (req, res) => {
+  const { gameId } = req.params;
+  try {
+    const players = await Player.find();
+    const tournaments = await Tournament.find({ game: gameId }).populate(
+      "teams.players"
+    );
+
+    const playerRankings = players.map((player) => {
+      const playerTournaments = tournaments.filter((tournament) =>
+        tournament.teams.some((team) =>
+          team.players.some((p) => p._id.equals(player._id))
+        )
+      );
+
+      const totalPoints = playerTournaments.reduce((sum, tournament) => {
+        const playerTeam = tournament.teams.find((team) =>
+          team.players.some((p) => p._id.equals(player._id))
+        );
+        const points = playerTeam ? playerTeam.score : 0;
+        return sum + points;
+      }, 0);
+
+      const totalVictories = playerTournaments.filter(
+        (tournament) =>
+          tournament.winningTeam &&
+          tournament.winningTeam.players.some((p) => p._id.equals(player._id))
+      ).length;
+
+      return {
+        playerId: player._id,
+        username: player.username,
+        totalPoints,
+        totalTournaments: playerTournaments.length,
+        totalVictories,
+      };
+    });
+
+    playerRankings.sort((a, b) => b.totalPoints - a.totalPoints);
+
+    res.status(200).json(playerRankings);
+  } catch (error) {
+    res.status(500).json({
+      message:
+        "Erreur lors de la récupération du classement des joueurs par jeu",
+      error,
+    });
   }
 };

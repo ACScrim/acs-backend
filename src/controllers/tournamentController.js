@@ -234,3 +234,42 @@ exports.registerPlayer = async (req, res) => {
       .json({ message: "Erreur lors de l'inscription au tournoi", error });
   }
 };
+
+exports.unregisterPlayer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    // Chercher l'utilisateur correspondant à l'ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // Chercher le joueur correspondant à l'ID de l'utilisateur
+    const player = await Player.findOne({ userId: userId });
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+
+    // Chercher le tournoi correspondant à l'ID
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    // Retirer le joueur du tournoi s'il est inscrit
+    const playerIndex = tournament.players.indexOf(player._id);
+    if (playerIndex !== -1) {
+      tournament.players.splice(playerIndex, 1);
+      await tournament.save();
+    }
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    console.error("Erreur lors de la désinscription du tournoi:", error);
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la désinscription du tournoi", error });
+  }
+};

@@ -9,7 +9,8 @@ const {
   finishTournament,
   generateTeams,
   updateTeamScore,
-  registerPlayer, // Importer la nouvelle méthode du contrôleur
+  registerPlayer,
+  unregisterPlayer, // Ajout de la méthode unregisterPlayer
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -29,6 +30,7 @@ router.route("/:id/generate-teams").post(protect, admin, generateTeams);
 
 // Nouvelle route pour inscrire un joueur à un tournoi
 router.route("/:id/register").post(protect, registerPlayer);
+router.route("/:id/unregister").post(protect, unregisterPlayer); // Ajout de la route unregister
 
 // Nouvelle route pour mettre à jour le score d'une équipe
 router.route("/:id/teams/:teamId/score").put(protect, admin, updateTeamScore);

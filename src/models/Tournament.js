@@ -1,9 +1,14 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
+const playerSchema = new mongoose.Schema({
+  player: { type: mongoose.Schema.Types.ObjectId, ref: "Player" },
+  checkedIn: { type: Boolean, default: false },
+});
+
 const teamSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
+  players: [playerSchema],
   score: { type: Number, default: 0 },
 });
 
@@ -12,7 +17,7 @@ const tournamentSchema = new mongoose.Schema({
   game: { type: mongoose.Schema.Types.ObjectId, ref: "Game", required: true },
   date: { type: Date, required: true },
   discordChannelName: { type: String, required: true },
-  players: [{ type: Schema.Types.ObjectId, ref: "Player" }],
+  players: [playerSchema],
   teams: [teamSchema], // Utilisation du schéma de sous-document pour les équipes
   winningTeam: { type: teamSchema }, // Utilisation du schéma de sous-document pour l'équipe gagnante
   finished: { type: Boolean, default: false },

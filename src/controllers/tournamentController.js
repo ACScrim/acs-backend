@@ -1,6 +1,5 @@
 const Tournament = require("../models/Tournament");
 const Player = require("../models/Player");
-const Game = require("../models/Game");
 const User = require("../models/User");
 
 // Créer un tournoi
@@ -9,12 +8,25 @@ exports.createTournament = async (req, res) => {
     const { name, game, date, discordChannelName, players, description } =
       req.body;
 
+    // Extraire les informations complètes des joueurs
+    const playerDetails = await Promise.all(
+      players.map(async (player) => {
+        const playerData = await Player.findById(player._id);
+        return {
+          player: player._id,
+          username: playerData.username,
+          userId: playerData.userId,
+          checkedIn: player.checkedIn,
+        };
+      })
+    );
+
     const newTournament = new Tournament({
       name,
       game,
       date,
       discordChannelName,
-      players,
+      players: playerDetails,
       description,
     });
 
@@ -41,13 +53,26 @@ exports.updateTournament = async (req, res) => {
       description,
     } = req.body;
 
+    // Extraire les informations complètes des joueurs
+    const playerDetails = await Promise.all(
+      players.map(async (player) => {
+        const playerData = await Player.findById(player._id);
+        return {
+          player: player._id,
+          username: playerData.username,
+          userId: playerData.userId,
+          checkedIn: player.checkedIn,
+        };
+      })
+    );
+
     const updatedTournament = await Tournament.findByIdAndUpdate(
       id,
       {
         name,
         date,
         discordChannelName,
-        players,
+        players: playerDetails,
         teams,
         winningTeam,
         description,
@@ -292,5 +317,34 @@ exports.unregisterPlayer = async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la désinscription du tournoi", error });
+  }
+};
+
+// Check-in ou uncheck-in un joueur à un tournoi
+exports.checkInPlayer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { playerId, checkedIn } = req.body;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    const player = tournament.players.find(
+      (p) => p.player.toString() === playerId
+    );
+    if (!player) {
+      return res
+        .status(404)
+        .json({ message: "Joueur non trouvé dans ce tournoi" });
+    }
+
+    player.checkedIn = checkedIn;
+    await tournament.save();
+
+    res.status(200).json({ message: "Check-in mis à jour", tournament });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors du check-in", error });
   }
 };

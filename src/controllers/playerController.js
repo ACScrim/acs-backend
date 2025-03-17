@@ -234,3 +234,19 @@ exports.getPlayerRankingsByGame = async (req, res) => {
     });
   }
 };
+
+// Récupérer un joueur par userId
+exports.getPlayerByIdUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const player = await Player.findOne({ userId });
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+    res.status(200).json(player);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la récupération du joueur", error });
+  }
+};

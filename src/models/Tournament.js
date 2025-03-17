@@ -16,6 +16,7 @@ const tournamentSchema = new mongoose.Schema({
   teams: [teamSchema], // Utilisation du schéma de sous-document pour les équipes
   winningTeam: { type: teamSchema }, // Utilisation du schéma de sous-document pour l'équipe gagnante
   finished: { type: Boolean, default: false },
+  description: { type: String },
 });
 
 const Tournament =

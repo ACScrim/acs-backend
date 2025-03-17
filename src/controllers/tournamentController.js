@@ -3,16 +3,19 @@ const Player = require("../models/Player");
 const Game = require("../models/Game");
 const User = require("../models/User");
 
+// Créer un tournoi
 exports.createTournament = async (req, res) => {
   try {
-    const { name, game, date, discordChannelName, players } = req.body;
+    const { name, game, date, discordChannelName, players, description } =
+      req.body;
 
     const newTournament = new Tournament({
       name,
       game,
       date,
       discordChannelName,
-      players, // Stockez les IDs des joueurs directement
+      players,
+      description,
     });
 
     await newTournament.save();
@@ -24,11 +27,19 @@ exports.createTournament = async (req, res) => {
   }
 };
 
+// Mettre à jour un tournoi
 exports.updateTournament = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, date, discordChannelName, players, teams, winningTeam } =
-      req.body;
+    const {
+      name,
+      date,
+      discordChannelName,
+      players,
+      teams,
+      winningTeam,
+      description,
+    } = req.body;
 
     const updatedTournament = await Tournament.findByIdAndUpdate(
       id,
@@ -36,9 +47,10 @@ exports.updateTournament = async (req, res) => {
         name,
         date,
         discordChannelName,
-        players, // Stockez les IDs des joueurs directement
+        players,
         teams,
         winningTeam,
+        description,
       },
       { new: true }
     );
@@ -51,6 +63,7 @@ exports.updateTournament = async (req, res) => {
   }
 };
 
+// Supprimer un tournoi par son identifiant
 exports.deleteTournament = async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,10 +77,11 @@ exports.deleteTournament = async (req, res) => {
   }
 };
 
+// Récupérer tous les tournois
 exports.getTournaments = async (req, res) => {
   try {
     const tournaments = await Tournament.find().populate(
-      "game players teams.players"
+      "game players teams.players winningTeam description"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -78,11 +92,12 @@ exports.getTournaments = async (req, res) => {
   }
 };
 
+// Récupérer un tournoi par son identifiant
 exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players teams.players"
+      "game players teams.players winningTeam description"
     );
     res.status(200).json(tournament);
   } catch (error) {
@@ -92,6 +107,7 @@ exports.getTournamentById = async (req, res) => {
   }
 };
 
+// Récupérer les tournois par jeu
 exports.getTournamentsByGame = async (req, res) => {
   try {
     const { gameId } = req.params;
@@ -106,6 +122,7 @@ exports.getTournamentsByGame = async (req, res) => {
   }
 };
 
+// Terminer un tournoi et déclarer une équipe gagnante
 exports.finishTournament = async (req, res) => {
   try {
     const { id } = req.params;
@@ -133,6 +150,7 @@ exports.finishTournament = async (req, res) => {
   }
 };
 
+// Générer des équipes aléatoire en fonction d'un nombre d'équipes donné
 exports.generateTeams = async (req, res) => {
   try {
     const { id } = req.params;
@@ -197,6 +215,8 @@ exports.updateTeamScore = async (req, res) => {
     });
   }
 };
+
+// Inscrire un joueur à un tournoi
 exports.registerPlayer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -235,6 +255,7 @@ exports.registerPlayer = async (req, res) => {
   }
 };
 
+// Désinscrire un joueur d'un tournoi
 exports.unregisterPlayer = async (req, res) => {
   try {
     const { id } = req.params;

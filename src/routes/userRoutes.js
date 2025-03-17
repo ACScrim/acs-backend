@@ -7,7 +7,7 @@ const { isSuperAdmin } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.get("/", isSuperAdmin, getAllUsers);
-router.put("/role", isSuperAdmin, updateUserRole);
+router.get("/", getAllUsers);
+router.put("/role", updateUserRole);
 
 module.exports = router;

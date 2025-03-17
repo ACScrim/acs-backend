@@ -20,7 +20,9 @@ passport.use(
             discordId: profile.id,
             accessToken: accessToken,
             refreshToken: refreshToken,
+            avatarUrl: `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`,
           });
+          console.log(user);
         } else {
           // Mettre à jour les tokens si l'utilisateur existe déjà
           user.accessToken = accessToken;

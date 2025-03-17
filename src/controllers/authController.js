@@ -1,8 +1,6 @@
 const Player = require("../models/Player");
 
 exports.discordCallback = async (req, res) => {
-  console.log("User authenticated via Discord:", req.user);
-
   req.logIn(req.user, async (err) => {
     if (err) {
       console.error("Erreur lors du login de l'utilisateur:", err);

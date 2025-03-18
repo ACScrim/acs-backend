@@ -135,7 +135,6 @@ exports.updatePlayerUsername = async (req, res) => {
 exports.getPlayerRankings = async (req, res) => {
   try {
     const players = await Player.find();
-
     const tournaments = await Tournament.find().populate("teams.players");
 
     const playerRankings = players.map((player) => {
@@ -159,12 +158,18 @@ exports.getPlayerRankings = async (req, res) => {
           tournament.winningTeam.players.some((p) => p._id.equals(player._id))
       ).length;
 
+      const tournamentsParticipated = playerTournaments.map((tournament) => ({
+        name: tournament.name,
+        date: tournament.date,
+      }));
+
       return {
         playerId: player._id,
         username: player.username,
         totalPoints,
         totalTournaments: playerTournaments.length,
         totalVictories,
+        tournamentsParticipated,
       };
     });
 
@@ -260,11 +265,9 @@ exports.getPlayerProfile = async (req, res) => {
     }
     res.status(200).json(player);
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "Erreur lors de la récupération du profil du joueur",
-        error,
-      });
+    res.status(500).json({
+      message: "Erreur lors de la récupération du profil du joueur",
+      error,
+    });
   }
 };

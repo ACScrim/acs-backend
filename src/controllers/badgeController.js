@@ -50,14 +50,6 @@ exports.getBadgeById = async (req, res) => {
 exports.assignBadgeToPlayer = async (req, res) => {
   try {
     const { playerId, badgeId } = req.body;
-    if (
-      !mongoose.Types.ObjectId.isValid(playerId) ||
-      !mongoose.Types.ObjectId.isValid(badgeId)
-    ) {
-      return res
-        .status(400)
-        .json({ message: "ID de joueur ou de badge invalide" });
-    }
 
     const player = await Player.findById(playerId);
     if (!player) {
@@ -83,14 +75,6 @@ exports.assignBadgeToPlayer = async (req, res) => {
 exports.removeBadgeFromPlayer = async (req, res) => {
   try {
     const { playerId, badgeId } = req.body;
-    if (
-      !mongoose.Types.ObjectId.isValid(playerId) ||
-      !mongoose.Types.ObjectId.isValid(badgeId)
-    ) {
-      return res
-        .status(400)
-        .json({ message: "ID de joueur ou de badge invalide" });
-    }
 
     const player = await Player.findById(playerId);
     if (!player) {

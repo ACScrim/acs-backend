@@ -16,12 +16,15 @@ exports.getPlayers = async (req, res) => {
 // Récupérer un joueur par son ID
 exports.getPlayerById = async (req, res) => {
   try {
-    const player = await Player.findById(req.params.id);
+    const player = await Player.findById(req.params.id).populate("badges");
+
     if (!player) {
       return res.status(404).json({ message: "Joueur non trouvé" });
     }
+
     res.json(player);
   } catch (error) {
+    console.error("Erreur lors de la récupération du joueur:", error);
     res
       .status(500)
       .json({ message: "Erreur lors de la récupération du joueur" });

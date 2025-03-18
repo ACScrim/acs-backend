@@ -250,3 +250,21 @@ exports.getPlayerByIdUser = async (req, res) => {
       .json({ message: "Erreur lors de la récupération du joueur", error });
   }
 };
+
+exports.getPlayerProfile = async (req, res) => {
+  try {
+    const playerId = req.params.id;
+    const player = await Player.findById(playerId).populate("badges");
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+    res.status(200).json(player);
+  } catch (error) {
+    res
+      .status(500)
+      .json({
+        message: "Erreur lors de la récupération du profil du joueur",
+        error,
+      });
+  }
+};

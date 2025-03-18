@@ -9,7 +9,8 @@ const {
   updatePlayerUsername,
   getPlayerRankings,
   getPlayerRankingsByGame,
-  getPlayerByIdUser, // Ajout de la route pour getPlayerByIdUser
+  getPlayerByIdUser,
+  getPlayerProfile,
 } = require("../controllers/playerController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -23,6 +24,7 @@ router.route("/search").get(searchPlayers);
 router.route("/:id").get(protect, getPlayerById);
 
 router.route("/user/:userId").get(protect, getPlayerByIdUser); // Ajout de la route pour getPlayerByIdUser
+router.get("/profile/:id", getPlayerProfile);
 
 router.route("/:id").delete(protect, admin, deletePlayer);
 router.route("/synchronize").post(protect, admin, synchronizePlayers);

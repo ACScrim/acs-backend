@@ -14,13 +14,14 @@ passport.use(
       try {
         let user = await User.findOne({ discordId: profile.id });
         if (!user) {
+          const avatarUrl = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
           user = await User.create({
             username: profile.username,
             email: profile.email,
             discordId: profile.id,
             accessToken: accessToken,
             refreshToken: refreshToken,
-            avatarUrl: `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`,
+            avatarUrl: avatarUrl,
           });
         } else {
           // Mettre à jour les tokens si l'utilisateur existe déjà
@@ -30,6 +31,7 @@ passport.use(
         }
         done(null, user);
       } catch (err) {
+        console.error("Error in DiscordStrategy:", err);
         done(err, null);
       }
     }

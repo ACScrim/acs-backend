@@ -100,7 +100,7 @@ exports.deleteTournament = async (req, res) => {
 exports.getTournaments = async (req, res) => {
   try {
     const tournaments = await Tournament.find().populate(
-      "game players teams.players winningTeam description"
+      "game players teams.players winningTeam.players description"
     );
     res.status(200).json(tournaments);
   } catch (error) {

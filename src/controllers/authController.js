@@ -7,13 +7,25 @@ exports.discordCallback = async (req, res) => {
       return res.status(500).json({ message: "Erreur d'authentification" });
     }
 
+    // Vérification des champs requis
+    if (
+      !req.user ||
+      !req.user.username ||
+      !req.user.discordId ||
+      !req.user.id
+    ) {
+      return res.status(400).json({ message: "Données utilisateur invalides" });
+    }
+
     // Ajouter ou mettre à jour le joueur dans la base Player
     try {
       const normalizedUsername = req.user.username.toLowerCase();
+      // Recherche d'un joueur existant avec le même nom d'utilisateur
       const existingPlayer = await Player.findOne({
         username: { $regex: new RegExp(`^${normalizedUsername}$`, "i") },
       });
 
+      // Si un joueur existe déjà, met à jour les champs discordId et userId
       if (existingPlayer) {
         existingPlayer.discordId = req.user.discordId;
         existingPlayer.userId = req.user.id;

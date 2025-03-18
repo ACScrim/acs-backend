@@ -1,6 +1,5 @@
 const Tournament = require("../models/Tournament");
 const Player = require("../models/Player");
-const Game = require("../models/Game");
 const User = require("../models/User");
 
 // Créer un tournoi
@@ -9,12 +8,22 @@ exports.createTournament = async (req, res) => {
     const { name, game, date, discordChannelName, players, description } =
       req.body;
 
+    // Extraire uniquement les IDs des joueurs
+    const playerIds = players.map((player) => player._id);
+
+    // Initialiser la propriété checkIns avec les IDs des joueurs et la valeur false par défaut
+    const checkIns = {};
+    playerIds.forEach((id) => {
+      checkIns[id] = false;
+    });
+
     const newTournament = new Tournament({
       name,
       game,
       date,
       discordChannelName,
-      players,
+      players: playerIds,
+      checkIns,
       description,
     });
 
@@ -41,15 +50,25 @@ exports.updateTournament = async (req, res) => {
       description,
     } = req.body;
 
+    // Extraire uniquement les IDs des joueurs
+    const playerIds = players.map((player) => player._id);
+
+    // Initialiser la propriété checkIns avec les IDs des joueurs et la valeur false par défaut
+    const checkIns = {};
+    playerIds.forEach((id) => {
+      checkIns[id] = false;
+    });
+
     const updatedTournament = await Tournament.findByIdAndUpdate(
       id,
       {
         name,
         date,
         discordChannelName,
-        players,
+        players: playerIds,
         teams,
         winningTeam,
+        checkIns,
         description,
       },
       { new: true }
@@ -222,33 +241,25 @@ exports.registerPlayer = async (req, res) => {
     const { id } = req.params;
     const { userId } = req.body;
 
-    // Chercher l'utilisateur correspondant à l'ID
     const user = await User.findById(userId);
-    if (!user) {
+    if (!user)
       return res.status(404).json({ message: "Utilisateur non trouvé" });
-    }
 
-    // Chercher le joueur correspondant à l'ID de l'utilisateur
     const player = await Player.findOne({ userId: userId });
-    if (!player) {
-      return res.status(404).json({ message: "Joueur non trouvé" });
-    }
+    if (!player) return res.status(404).json({ message: "Joueur non trouvé" });
 
-    // Chercher le tournoi correspondant à l'ID
     const tournament = await Tournament.findById(id);
-    if (!tournament) {
+    if (!tournament)
       return res.status(404).json({ message: "Tournoi non trouvé" });
-    }
 
-    // Ajouter le joueur au tournoi s'il n'est pas déjà inscrit
     if (!tournament.players.includes(player._id)) {
       tournament.players.push(player._id);
+      tournament.checkIns.set(player._id, false); // Ajout dans checkIns avec "false"
       await tournament.save();
     }
 
     res.status(200).json(tournament);
   } catch (error) {
-    console.error("Erreur lors de l'inscription au tournoi:", error);
     res
       .status(500)
       .json({ message: "Erreur lors de l'inscription au tournoi", error });
@@ -256,41 +267,65 @@ exports.registerPlayer = async (req, res) => {
 };
 
 // Désinscrire un joueur d'un tournoi
+// Désinscrire un joueur d'un tournoi
 exports.unregisterPlayer = async (req, res) => {
   try {
     const { id } = req.params;
     const { userId } = req.body;
 
-    // Chercher l'utilisateur correspondant à l'ID
     const user = await User.findById(userId);
-    if (!user) {
+    if (!user)
       return res.status(404).json({ message: "Utilisateur non trouvé" });
-    }
 
-    // Chercher le joueur correspondant à l'ID de l'utilisateur
     const player = await Player.findOne({ userId: userId });
-    if (!player) {
-      return res.status(404).json({ message: "Joueur non trouvé" });
-    }
+    if (!player) return res.status(404).json({ message: "Joueur non trouvé" });
 
-    // Chercher le tournoi correspondant à l'ID
     const tournament = await Tournament.findById(id);
-    if (!tournament) {
+    if (!tournament)
       return res.status(404).json({ message: "Tournoi non trouvé" });
-    }
 
-    // Retirer le joueur du tournoi s'il est inscrit
     const playerIndex = tournament.players.indexOf(player._id);
     if (playerIndex !== -1) {
       tournament.players.splice(playerIndex, 1);
+      tournament.checkIns.delete(player._id); // Supprime le check-in
       await tournament.save();
     }
 
     res.status(200).json(tournament);
   } catch (error) {
-    console.error("Erreur lors de la désinscription du tournoi:", error);
     res
       .status(500)
       .json({ message: "Erreur lors de la désinscription du tournoi", error });
+  }
+};
+
+// Check-in ou uncheck-in un joueur à un tournoi
+exports.checkInPlayer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, checkedIn } = req.body;
+
+    // Récupérer le playerId à partir du userId
+    const player = await Player.findOne({ userId: userId });
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+    const playerId = player._id;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    if (!tournament.players.includes(playerId)) {
+      return res.status(404).json({ message: "Joueur non inscrit au tournoi" });
+    }
+
+    tournament.checkIns.set(playerId, checkedIn);
+    await tournament.save();
+
+    res.status(200).json({ message: "Check-in mis à jour", tournament });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors du check-in", error });
   }
 };

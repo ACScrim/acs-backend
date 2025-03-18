@@ -11,6 +11,7 @@ const playerRoutes = require("./routes/playerRoutes");
 const tournamentRoutes = require("./routes/tournamentRoutes");
 const gameRoutes = require("./routes/gameRoutes");
 const userRoutes = require("./routes/userRoutes");
+const badgeRoutes = require("./routes/badgeRoutes");
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -59,6 +60,7 @@ app.use("/api/players", playerRoutes);
 app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/games", gameRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/badges", badgeRoutes);
 
 // Connect to MongoDB
 mongoose

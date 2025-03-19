@@ -50,32 +50,90 @@ exports.updateTournament = async (req, res) => {
       description,
     } = req.body;
 
-    // Extraire uniquement les IDs des joueurs
-    const playerIds = players.map((player) => player._id);
+    // Récupérer le tournoi existant pour la mise à jour
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
 
-    // Initialiser la propriété checkIns avec les IDs des joueurs et la valeur false par défaut
+    // Extraire les IDs des joueurs envoyés et existants
+    const newPlayerIds = players.map((player) => player._id.toString());
+    const existingPlayerIds = tournament.players.map((id) => id.toString());
+
+    // Identifier les joueurs ajoutés et supprimés
+    const addedPlayers = newPlayerIds.filter(
+      (id) => !existingPlayerIds.includes(id)
+    );
+    const removedPlayers = existingPlayerIds.filter(
+      (id) => !newPlayerIds.includes(id)
+    );
+
+    // Mettre à jour la liste des joueurs du tournoi
+    tournament.players = newPlayerIds;
+
+    // Mettre à jour les checkIns
     const checkIns = {};
-    playerIds.forEach((id) => {
-      checkIns[id] = false;
+    newPlayerIds.forEach((id) => {
+      if (existingPlayerIds.includes(id) && tournament.checkIns.has(id)) {
+        checkIns[id] = tournament.checkIns.get(id);
+      } else {
+        checkIns[id] = false;
+      }
     });
+    tournament.checkIns = checkIns;
 
-    const updatedTournament = await Tournament.findByIdAndUpdate(
-      id,
-      {
-        name,
-        date,
-        discordChannelName,
-        players: playerIds,
-        teams,
-        winningTeam,
-        checkIns,
-        description,
-      },
-      { new: true }
+    // 1. SUPPRIMER LES JOUEURS RETIRÉS DES ÉQUIPES
+    if (tournament.teams && tournament.teams.length > 0) {
+      for (let team of tournament.teams) {
+        // Filtrer les joueurs retirés de l'équipe
+        team.players = team.players.filter((playerId) =>
+          newPlayerIds.includes(playerId.toString())
+        );
+      }
+    }
+
+    // 2. AJOUTER LES NOUVEAUX JOUEURS AUX ÉQUIPES
+    if (
+      tournament.teams &&
+      tournament.teams.length > 0 &&
+      addedPlayers.length > 0
+    ) {
+      // Pour chaque joueur ajouté
+      for (let addedPlayerId of addedPlayers) {
+        // Trouver l'équipe avec le moins de joueurs
+        let minTeam = tournament.teams[0];
+        let minPlayers = minTeam.players.length;
+
+        for (let i = 1; i < tournament.teams.length; i++) {
+          if (tournament.teams[i].players.length < minPlayers) {
+            minTeam = tournament.teams[i];
+            minPlayers = minTeam.players.length;
+          }
+        }
+
+        // Ajouter le joueur à cette équipe
+        minTeam.players.push(addedPlayerId);
+      }
+    }
+
+    // Mettre à jour les autres propriétés du tournoi
+    tournament.name = name;
+    tournament.date = date;
+    tournament.discordChannelName = discordChannelName;
+    tournament.description = description;
+    if (winningTeam) tournament.winningTeam = winningTeam;
+
+    // Sauvegarder directement le document modifié
+    await tournament.save();
+
+    // Récupérer le tournoi mis à jour et peuplé pour la réponse
+    const updatedTournament = await Tournament.findById(id).populate(
+      "game players teams.players winningTeam"
     );
 
     res.status(200).json(updatedTournament);
   } catch (error) {
+    console.error("Erreur lors de la mise à jour du tournoi:", error);
     res
       .status(500)
       .json({ message: "Erreur lors de la mise à jour du tournoi", error });
@@ -236,6 +294,7 @@ exports.updateTeamScore = async (req, res) => {
 };
 
 // Inscrire un joueur à un tournoi
+// Inscrire un joueur à un tournoi
 exports.registerPlayer = async (req, res) => {
   try {
     const { id } = req.params;
@@ -255,6 +314,21 @@ exports.registerPlayer = async (req, res) => {
     if (!tournament.players.includes(player._id)) {
       tournament.players.push(player._id);
       tournament.checkIns.set(player._id, false); // Ajout dans checkIns avec "false"
+
+      // Ajouter le joueur à une équipe
+      if (tournament.teams && tournament.teams.length > 0) {
+        // Trouver l'équipe la moins nombreuse
+        let minTeam = tournament.teams[0];
+        for (let team of tournament.teams) {
+          if (team.players.length < minTeam.players.length) {
+            minTeam = team;
+          }
+        }
+
+        // Ajouter le joueur à l'équipe la moins nombreuse
+        minTeam.players.push(player._id);
+      }
+
       await tournament.save();
     }
 
@@ -266,7 +340,6 @@ exports.registerPlayer = async (req, res) => {
   }
 };
 
-// Désinscrire un joueur d'un tournoi
 // Désinscrire un joueur d'un tournoi
 exports.unregisterPlayer = async (req, res) => {
   try {
@@ -284,10 +357,25 @@ exports.unregisterPlayer = async (req, res) => {
     if (!tournament)
       return res.status(404).json({ message: "Tournoi non trouvé" });
 
+    // Retirer le joueur de la liste des participants
     const playerIndex = tournament.players.indexOf(player._id);
     if (playerIndex !== -1) {
       tournament.players.splice(playerIndex, 1);
       tournament.checkIns.delete(player._id); // Supprime le check-in
+
+      // Retirer également le joueur de son équipe s'il en fait partie
+      if (tournament.teams && tournament.teams.length > 0) {
+        // Pour chaque équipe
+        tournament.teams.forEach((team) => {
+          // Rechercher le joueur dans l'équipe
+          const teamPlayerIndex = team.players.indexOf(player._id);
+          if (teamPlayerIndex !== -1) {
+            // Retirer le joueur de l'équipe
+            team.players.splice(teamPlayerIndex, 1);
+          }
+        });
+      }
+
       await tournament.save();
     }
 

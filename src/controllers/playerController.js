@@ -153,7 +153,7 @@ exports.getPlayerRankings = async (req, res) => {
         const playerTeam = tournament.teams.find((team) =>
           team.players.some((p) => p._id.equals(player._id))
         );
-        const points = playerTeam ? playerTeam.score : 0; // Assurez-vous d'utiliser la bonne propriété
+        const points = playerTeam ? playerTeam.score : 0;
         return sum + points;
       }, 0);
 
@@ -163,20 +163,28 @@ exports.getPlayerRankings = async (req, res) => {
           tournament.winningTeam.players.some((p) => p._id.equals(player._id))
       ).length;
 
-      // Dans la fonction getPlayerRankings, modifiez la création de tournamentsParticipated:
-
+      // Modifier cette partie pour utiliser le rang au lieu du résultat
+      // et inclure le nombre total d'équipes
       const tournamentsParticipated = playerTournaments.map((tournament) => {
-        // Déterminer si ce joueur fait partie de l'équipe gagnante
-        const isWinner =
-          tournament.winningTeam &&
-          tournament.winningTeam.players &&
-          tournament.winningTeam.players.some((p) => p._id.equals(player._id));
+        // Trouver l'équipe du joueur dans ce tournoi
+        const playerTeam = tournament.teams.find((team) =>
+          team.players.some((p) => p._id.equals(player._id))
+        );
+
+        // Récupérer le rang de l'équipe du joueur
+        const rank = playerTeam ? playerTeam.ranking : null;
+
+        // Récupérer le nombre total d'équipes dans le tournoi
+        const numberOfTeams = tournament.teams ? tournament.teams.length : 0;
 
         return {
           _id: tournament._id,
           name: tournament.name,
           date: tournament.date,
-          result: isWinner ? "Victoire" : "Défaite", // Calculer le résultat directement côté serveur
+          rank: rank,
+          teamName: playerTeam ? playerTeam.name : "Équipe inconnue",
+          // Ajouter le nombre total d'équipes
+          numberOfTeams: numberOfTeams,
           winningTeamId: tournament.winningTeam
             ? tournament.winningTeam._id
             : null,
@@ -208,7 +216,6 @@ exports.getPlayerRankings = async (req, res) => {
     });
   }
 };
-
 // Endpoint pour récupérer le classement des joueurs par jeu
 exports.getPlayerRankingsByGame = async (req, res) => {
   const { gameId } = req.params;

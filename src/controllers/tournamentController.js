@@ -263,37 +263,70 @@ exports.generateTeams = async (req, res) => {
   }
 };
 
-// Mettre à jour le score d'une équipe
-exports.updateTeamScore = async (req, res) => {
+// Mettre à jour le classement d'une équipe dans un tournoi
+exports.updateTeamRanking = async (req, res) => {
   try {
     const { id, teamId } = req.params;
-    const { score } = req.body;
+    const { ranking } = req.body;
 
     const tournament = await Tournament.findById(id);
-
     if (!tournament) {
       return res.status(404).json({ message: "Tournoi non trouvé" });
     }
 
     const team = tournament.teams.id(teamId);
-
     if (!team) {
       return res.status(404).json({ message: "Équipe non trouvée" });
     }
 
-    team.score = score;
+    team.ranking = ranking;
     await tournament.save();
 
     res.status(200).json(tournament);
   } catch (error) {
     res.status(500).json({
-      message: "Erreur lors de la mise à jour du score de l'équipe",
+      message: "Erreur lors de la mise à jour du classement de l'équipe",
       error,
     });
   }
 };
 
-// Inscrire un joueur à un tournoi
+// Modifier la fonction finishTournament pour utiliser le ranking
+exports.finishTournament = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { winningTeamId } = req.body;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    // Vérifier que l'équipe gagnante est bien classée 1ère
+    const winningTeam = tournament.teams.id(winningTeamId);
+    if (!winningTeam) {
+      return res.status(404).json({ message: "Équipe gagnante non trouvée" });
+    }
+
+    if (winningTeam.ranking !== 1) {
+      return res.status(400).json({
+        message: "L'équipe gagnante doit être classée 1ère",
+      });
+    }
+
+    tournament.finished = true;
+    tournament.winningTeam = winningTeam;
+    await tournament.save();
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la finalisation du tournoi",
+      error,
+    });
+  }
+};
+
 // Inscrire un joueur à un tournoi
 exports.registerPlayer = async (req, res) => {
   try {

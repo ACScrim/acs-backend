@@ -12,6 +12,7 @@ const {
   registerPlayer,
   unregisterPlayer,
   checkInPlayer,
+  updateTeamRanking,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -34,9 +35,11 @@ router.route("/:id/register").post(protect, registerPlayer);
 router.route("/:id/unregister").post(protect, unregisterPlayer); // Ajout de la route unregister
 
 // Nouvelle route pour mettre à jour le score d'une équipe
-router.route("/:id/teams/:teamId/score").put(protect, admin, updateTeamScore);
+//router.route("/:id/teams/:teamId/score").put(protect, admin, updateTeamScore);
 
 // Nouvelle route pour le check-in d'un joueur
 router.route("/:id/check-in").post(protect, checkInPlayer);
+
+router.put("/:id/teams/:teamId/ranking", updateTeamRanking);
 
 module.exports = router;

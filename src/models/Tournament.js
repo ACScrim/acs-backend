@@ -5,6 +5,7 @@ const teamSchema = new mongoose.Schema({
   name: { type: String, required: true },
   players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }], // On garde les IDs
   score: { type: Number, default: 0 },
+  ranking: { type: Number, default: 0 },
 });
 
 const tournamentSchema = new mongoose.Schema({

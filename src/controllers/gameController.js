@@ -34,12 +34,21 @@ exports.updateGame = async (req, res) => {
 };
 
 exports.deleteGame = async (req, res) => {
-  const game = await Game.findById(req.params.id);
+  try {
+    const game = await Game.findById(req.params.id);
 
-  if (game) {
-    await game.remove();
+    if (!game) {
+      return res.status(404).json({ message: "Game not found" });
+    }
+
+    // Utiliser deleteOne() plutôt que remove()
+    await Game.deleteOne({ _id: req.params.id });
+
     res.json({ message: "Game removed" });
-  } else {
-    res.status(404).json({ message: "Game not found" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression:", error);
+    res
+      .status(500)
+      .json({ message: "Une erreur est survenue lors de la suppression" });
   }
 };

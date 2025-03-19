@@ -2,13 +2,9 @@ const Badge = require("../models/Badge");
 const Player = require("../models/Player");
 
 exports.createBadge = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ message: "Validation error", errors });
-  }
   try {
-    const { title, imageUrl } = req.body;
-    const badge = new Badge({ title, imageUrl });
+    const { title, imageUrl, description } = req.body;
+    const badge = new Badge({ title, imageUrl, description });
     await badge.save();
     res.status(201).json(badge);
   } catch (error) {

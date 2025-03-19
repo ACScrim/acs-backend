@@ -138,7 +138,9 @@ exports.updatePlayerUsername = async (req, res) => {
 exports.getPlayerRankings = async (req, res) => {
   try {
     const players = await Player.find();
-    const tournaments = await Tournament.find().populate("teams.players");
+    const tournaments = await Tournament.find({ finished: true }).populate(
+      "teams.players"
+    );
 
     const playerRankings = players.map((player) => {
       const playerTournaments = tournaments.filter((tournament) =>
@@ -161,10 +163,25 @@ exports.getPlayerRankings = async (req, res) => {
           tournament.winningTeam.players.some((p) => p._id.equals(player._id))
       ).length;
 
-      const tournamentsParticipated = playerTournaments.map((tournament) => ({
-        name: tournament.name,
-        date: tournament.date,
-      }));
+      // Dans la fonction getPlayerRankings, modifiez la création de tournamentsParticipated:
+
+      const tournamentsParticipated = playerTournaments.map((tournament) => {
+        // Déterminer si ce joueur fait partie de l'équipe gagnante
+        const isWinner =
+          tournament.winningTeam &&
+          tournament.winningTeam.players &&
+          tournament.winningTeam.players.some((p) => p._id.equals(player._id));
+
+        return {
+          _id: tournament._id,
+          name: tournament.name,
+          date: tournament.date,
+          result: isWinner ? "Victoire" : "Défaite", // Calculer le résultat directement côté serveur
+          winningTeamId: tournament.winningTeam
+            ? tournament.winningTeam._id
+            : null,
+        };
+      });
 
       return {
         playerId: player._id,

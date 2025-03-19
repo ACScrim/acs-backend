@@ -1,5 +1,20 @@
 const User = require("../models/User");
 
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(
+      req.params.id,
+      "username email role discordId avatarUrl"
+    );
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la récupération de l'utilisateur",
+      error,
+    });
+  }
+};
+
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find(

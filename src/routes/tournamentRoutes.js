@@ -21,7 +21,7 @@ router.route("/").get(getTournaments).post(protect, admin, createTournament);
 
 router
   .route("/:id")
-  .get(protect, getTournamentById)
+  .get(getTournamentById)
   .put(protect, admin, updateTournament)
   .delete(protect, admin, deleteTournament);
 

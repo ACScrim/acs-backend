@@ -40,6 +40,13 @@ require("./config/passport");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Configuration pour faire confiance au proxy - AJOUTEZ CECI
+if (process.env.TRUST_PROXY === "true") {
+  // Faire confiance au premier proxy (Nginx)
+  app.set("trust proxy", 1);
+  console.log("Express configuré pour faire confiance au proxy");
+}
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
@@ -110,13 +117,6 @@ app.use((err, req, res, next) => {
   logger.error("Erreur non gérée:", err);
   res.status(500).json({ message: "Une erreur interne est survenue." });
 });
-
-// Configuration pour faire confiance au proxy - AJOUTEZ CECI
-if (process.env.TRUST_PROXY === "true") {
-  // Faire confiance au premier proxy (Nginx)
-  app.set("trust proxy", 1);
-  console.log("Express configuré pour faire confiance au proxy");
-}
 
 // Connect to MongoDB
 mongoose

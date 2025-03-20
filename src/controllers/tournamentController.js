@@ -1,6 +1,7 @@
 const Tournament = require("../models/Tournament");
 const Player = require("../models/Player");
 const User = require("../models/User");
+const { deleteAndCreateChannels } = require("../discord-bot/index.js");
 
 // Créer un tournoi
 exports.createTournament = async (req, res) => {
@@ -50,6 +51,7 @@ exports.updateTournament = async (req, res) => {
       description,
     } = req.body;
 
+    console.log("teams", teams);
     // Récupérer le tournoi existant pour la mise à jour
     const tournament = await Tournament.findById(id);
     if (!tournament) {
@@ -114,6 +116,12 @@ exports.updateTournament = async (req, res) => {
         // Ajouter le joueur à cette équipe
         minTeam.players.push(addedPlayerId);
       }
+    }
+
+    for (let team of tournament.teams) {
+      team.name = teams.find(
+        (t) => t._id.toString() === team._id.toString()
+      ).name;
     }
 
     // Mettre à jour les autres propriétés du tournoi
@@ -448,5 +456,19 @@ exports.checkInPlayer = async (req, res) => {
     res.status(200).json({ message: "Check-in mis à jour", tournament });
   } catch (error) {
     res.status(500).json({ message: "Erreur lors du check-in", error });
+  }
+};
+
+exports.createDiscordChannels = async (req, res) => {
+  try {
+    console.log(req.body);
+    const { teams } = req.body;
+    const nomsTeam = teams.map((team) => team.name);
+    await deleteAndCreateChannels(nomsTeam);
+    res.status(200).json({ message: "Salons vocaux créés" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la création des salons vocaux", error });
   }
 };

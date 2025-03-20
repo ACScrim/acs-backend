@@ -9,6 +9,7 @@ const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const winston = require("winston");
+const discordbot = require("./discord-bot/index.js");
 
 // Charger les variables d'environnement
 dotenv.config();

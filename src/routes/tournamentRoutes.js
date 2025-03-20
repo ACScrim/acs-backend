@@ -13,8 +13,10 @@ const {
   unregisterPlayer,
   checkInPlayer,
   updateTeamRanking,
+  createDiscordChannels,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
+const { create } = require("connect-mongo");
 const router = express.Router();
 
 router.route("/").get(getTournaments).post(protect, admin, createTournament);
@@ -41,5 +43,7 @@ router.route("/:id/unregister").post(protect, unregisterPlayer); // Ajout de la 
 router.route("/:id/check-in").post(protect, checkInPlayer);
 
 router.put("/:id/teams/:teamId/ranking", updateTeamRanking);
+
+router.post("/create-discord-channels", createDiscordChannels);
 
 module.exports = router;

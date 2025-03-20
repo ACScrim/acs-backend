@@ -13,6 +13,13 @@ const winston = require("winston");
 // Charger les variables d'environnement
 dotenv.config();
 
+// Configuration pour faire confiance au proxy - AJOUTEZ CECI
+if (process.env.TRUST_PROXY === "true") {
+  // Faire confiance au premier proxy (Nginx)
+  app.set("trust proxy", 1);
+  console.log("Express configuré pour faire confiance au proxy");
+}
+
 // Valider les variables d'environnement
 const requiredEnvVars = ["MONGODB_URI", "JWT_SECRET", "CORS_ORIGIN"];
 for (const envVar of requiredEnvVars) {

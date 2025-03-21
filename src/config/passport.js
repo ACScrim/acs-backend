@@ -28,6 +28,22 @@ passport.use(
           user.accessToken = accessToken;
           user.refreshToken = refreshToken;
           await user.save();
+
+          // Vérifier si l'avatar a changé
+          if (user.avatarUrl !== avatarUrl) {
+            console.log(
+              `Mise à jour de l'avatar pour ${profile.username}: ${avatarUrl}`
+            );
+            user.avatarUrl = avatarUrl;
+          }
+
+          // Vérifier si le nom d'utilisateur a changé
+          if (user.username !== profile.username) {
+            console.log(
+              `Mise à jour du nom d'utilisateur: ${user.username} -> ${profile.username}`
+            );
+            user.username = profile.username;
+          }
         }
         done(null, user);
       } catch (err) {

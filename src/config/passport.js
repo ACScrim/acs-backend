@@ -13,8 +13,9 @@ passport.use(
     async (accessToken, refreshToken, profile, done) => {
       try {
         let user = await User.findOne({ discordId: profile.id });
+        const avatarUrl = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
+
         if (!user) {
-          const avatarUrl = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`;
           user = await User.create({
             username: profile.username,
             email: profile.email,

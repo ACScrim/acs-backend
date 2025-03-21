@@ -10,6 +10,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const winston = require("winston");
 const discordbot = require("./discord-bot/index.js");
+const { startScheduler } = require("./services/schedulerService");
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -31,7 +32,7 @@ const logger = winston.createLogger({
   format: winston.format.json(),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ filename: "error.log", level: "error" }),
+    new winston.transports.File({ filename: "logs/error.log", level: "error" }),
   ],
 });
 
@@ -138,6 +139,8 @@ process.on("unhandledRejection", (err) => {
   logger.error("Promesse non gérée:", err);
   process.exit(1);
 });
+
+startScheduler();
 
 // Démarrer le serveur
 app.listen(PORT, () => {

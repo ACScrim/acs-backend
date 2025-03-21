@@ -118,10 +118,12 @@ exports.updateTournament = async (req, res) => {
       }
     }
 
-    for (let team of tournament.teams) {
-      team.name = teams.find(
-        (t) => t._id.toString() === team._id.toString()
-      ).name;
+    if (tournament.teams && teams) {
+      for (let team of tournament.teams) {
+        team.name = teams.find(
+          (t) => t._id.toString() === team._id.toString()
+        ).name;
+      }
     }
 
     // Mettre à jour les autres propriétés du tournoi

@@ -203,7 +203,7 @@ const sendTournamentReminder = async (tournament) => {
     try {
       await targetChannel.send({
         content:
-          `@everyone **${tournament.name}** commence bientôt ! N'oubliez pas de faire votre check-in pour ce tournoi !\n` +
+          `**${tournament.name}** commence bientôt ! N'oubliez pas de faire votre check-in pour ce tournoi !\n` +
           `Rendez-vous sur https://acscrim.fr/tournois-a-venir pour plus d'informations.`,
         embeds: [embed],
       });

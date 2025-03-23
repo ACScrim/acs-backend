@@ -57,7 +57,7 @@ app.use(helmet());
 // Limiter les requêtes à 100 par IP toutes les 15 minutes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
+  max: 350,
 });
 app.use(limiter);
 

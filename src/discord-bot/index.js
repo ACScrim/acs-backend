@@ -179,13 +179,7 @@ const sendTournamentReminder = async (tournament) => {
         },
         {
           name: "Date du tournoi",
-          value: new Date(tournament.date).toLocaleString("fr-FR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          value: formatDateToFrenchTimezone(new Date(tournament.date)),
           inline: true,
         },
         {
@@ -227,6 +221,24 @@ const sendTournamentReminder = async (tournament) => {
     return false;
   }
 };
+/**
+ * Formate une date en heure française (UTC+1 ou UTC+2 selon DST)
+ * @param {Date} date - La date à formater
+ * @returns {string} La date formatée en heure française
+ */
+function formatDateToFrenchTimezone(date) {
+  // Convertir à la timezone française (Europe/Paris)
+  const options = {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  };
+
+  return date.toLocaleString("fr-FR", options);
+}
 
 /**
  * Supprime tous les canaux vocaux sauf ceux dans la liste des canaux à conserver

@@ -1,25 +1,18 @@
 const express = require("express");
-const passport = require("passport");
-const {
-  discordCallback,
-  getMe,
-  logout,
-} = require("../controllers/authController");
-const { protect } = require("../middleware/authMiddleware");
 const router = express.Router();
+const passport = require("passport");
+const authController = require("../controllers/authController");
 
+// Route pour initier l'authentification Discord
 router.get("/discord", passport.authenticate("discord"));
 
-router.get(
-  "/discord/callback",
-  passport.authenticate("discord", {
-    failureRedirect: "/login",
-  }),
-  discordCallback
-);
+// Route de callback avec notre gestionnaire personnalisé
+router.get("/discord/callback", authController.discordCallback);
 
-router.get("/me", protect, getMe);
+// Route pour récupérer l'utilisateur connecté
+router.get("/me", authController.getMe);
 
-router.post("/logout", logout);
+// Route de déconnexion
+router.post("/logout", authController.logout);
 
 module.exports = router;

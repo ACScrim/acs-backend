@@ -3,9 +3,11 @@ const DiscordStrategy = require("passport-discord").Strategy;
 const User = require("../models/User");
 
 // ID du serveur Discord obligatoire
-const REQUIRED_GUILD_ID = "1330973733929615420";
+const REQUIRED_GUILD_ID =
+  process.env.REQUIRED_GUILD_ID || "1330973733929615420";
 // Lien d'invitation vers le serveur Discord
-const DISCORD_INVITE_LINK = "https://discord.gg/ksCGJztmBd";
+const DISCORD_INVITE_LINK =
+  process.env.DISCORD_INVITE_LINK || "https://discord.gg/ksCGJztmBd";
 
 passport.use(
   new DiscordStrategy(

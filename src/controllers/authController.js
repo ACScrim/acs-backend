@@ -71,25 +71,57 @@ exports.discordCallback = (req, res, next) => {
           );
         }
 
-        // Ajouter ou mettre à jour le joueur dans la base Player
-        const normalizedUsername = user.username.toLowerCase();
-        // Recherche d'un joueur existant avec le même nom d'utilisateur
-        const existingPlayer = await Player.findOne({
-          username: { $regex: new RegExp(`^${normalizedUsername}$`, "i") },
+        // D'abord, rechercher par discordId (identité précise)
+        let playerByDiscordId = await Player.findOne({
+          discordId: user.discordId,
         });
 
-        // Si un joueur existe déjà, met à jour les champs discordId et userId
-        if (existingPlayer) {
-          existingPlayer.discordId = user.discordId;
-          existingPlayer.userId = user.id;
-          await existingPlayer.save();
+        // Si un joueur avec cet ID Discord existe déjà
+        if (playerByDiscordId) {
+          // Vérifier si le nom d'utilisateur a changé
+          if (playerByDiscordId.username !== user.username) {
+            console.log(
+              `Le nom d'utilisateur a changé: ${playerByDiscordId.username} -> ${user.username}`
+            );
+
+            // Mettre à jour le nom d'utilisateur
+            playerByDiscordId.username = user.username;
+
+            // Mettre à jour d'autres champs si nécessaire
+            playerByDiscordId.userId = user.id; // Assurez-vous que l'userId est à jour aussi
+
+            await playerByDiscordId.save();
+            console.log(
+              `Nom d'utilisateur mis à jour pour ${user.username} (ID Discord: ${user.discordId})`
+            );
+          } else {
+            // Même nom, juste mettre à jour l'userId si nécessaire
+            if (playerByDiscordId.userId !== user.id) {
+              playerByDiscordId.userId = user.id;
+              await playerByDiscordId.save();
+            }
+          }
         } else {
-          const player = new Player({
-            username: user.username,
-            userId: user.id,
-            discordId: user.discordId,
+          // Ajouter ou mettre à jour le joueur dans la base Player
+          const normalizedUsername = user.username.toLowerCase();
+          // Recherche d'un joueur existant avec le même nom d'utilisateur
+          const existingPlayer = await Player.findOne({
+            username: { $regex: new RegExp(`^${normalizedUsername}$`, "i") },
           });
-          await player.save();
+
+          // Si un joueur existe déjà, met à jour les champs discordId et userId
+          if (existingPlayer) {
+            existingPlayer.discordId = user.discordId;
+            existingPlayer.userId = user.id;
+            await existingPlayer.save();
+          } else {
+            const player = new Player({
+              username: user.username,
+              userId: user.id,
+              discordId: user.discordId,
+            });
+            await player.save();
+          }
         }
 
         // Redirige vers le frontend après une connexion réussie

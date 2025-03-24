@@ -41,15 +41,8 @@ exports.createTournament = async (req, res) => {
 exports.updateTournament = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      name,
-      date,
-      discordChannelName,
-      players,
-      teams,
-      winningTeam,
-      description,
-    } = req.body;
+    const { name, date, discordChannelName, players, teams, description } =
+      req.body;
 
     // Récupérer le tournoi existant pour la mise à jour
     const tournament = await Tournament.findById(id);
@@ -130,14 +123,13 @@ exports.updateTournament = async (req, res) => {
     tournament.date = date;
     tournament.discordChannelName = discordChannelName;
     tournament.description = description;
-    if (winningTeam) tournament.winningTeam = winningTeam;
 
     // Sauvegarder directement le document modifié
     await tournament.save();
 
     // Récupérer le tournoi mis à jour et peuplé pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players teams.players winningTeam"
+      "game players teams.players"
     );
 
     res.status(200).json(updatedTournament);
@@ -167,7 +159,7 @@ exports.deleteTournament = async (req, res) => {
 exports.getTournaments = async (req, res) => {
   try {
     const tournaments = await Tournament.find().populate(
-      "game players teams.players winningTeam.players description"
+      "game players teams.players description"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -183,7 +175,7 @@ exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players teams.players winningTeam description"
+      "game players teams.players description"
     );
     res.status(200).json(tournament);
   } catch (error) {
@@ -212,20 +204,13 @@ exports.getTournamentsByGame = async (req, res) => {
 exports.finishTournament = async (req, res) => {
   try {
     const { id } = req.params;
-    const { winningTeamId } = req.body;
 
     const tournament = await Tournament.findById(id);
     if (!tournament) {
       return res.status(404).json({ message: "Tournoi non trouvé" });
     }
 
-    const winningTeam = tournament.teams.id(winningTeamId);
-    if (!winningTeam) {
-      return res.status(404).json({ message: "Équipe gagnante non trouvée" });
-    }
-
     tournament.finished = true;
-    tournament.winningTeam = winningTeam;
     await tournament.save();
 
     res.status(200).json(tournament);
@@ -233,6 +218,39 @@ exports.finishTournament = async (req, res) => {
     res
       .status(500)
       .json({ message: "Erreur lors de la finalisation du tournoi", error });
+  }
+};
+
+// Ajouter cet endpoint
+
+// Marquer un tournoi comme terminé sans définir une équipe gagnante spécifique
+exports.markTournamentAsFinished = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    // Vérifier qu'au moins une équipe a un ranking
+    const hasRankings = tournament.teams.some((team) => team.ranking > 0);
+    if (!hasRankings) {
+      return res.status(400).json({
+        message:
+          "Impossible de terminer le tournoi : aucune équipe n'a de classement défini",
+      });
+    }
+
+    tournament.finished = true;
+    await tournament.save();
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors du marquage du tournoi comme terminé",
+      error,
+    });
   }
 };
 
@@ -340,42 +358,6 @@ exports.updateTeamRanking = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Erreur lors de la mise à jour du classement de l'équipe",
-      error,
-    });
-  }
-};
-
-// Modifier la fonction finishTournament pour utiliser le ranking
-exports.finishTournament = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { winningTeamId } = req.body;
-
-    const tournament = await Tournament.findById(id);
-    if (!tournament) {
-      return res.status(404).json({ message: "Tournoi non trouvé" });
-    }
-
-    // Vérifier que l'équipe gagnante est bien classée 1ère
-    const winningTeam = tournament.teams.id(winningTeamId);
-    if (!winningTeam) {
-      return res.status(404).json({ message: "Équipe gagnante non trouvée" });
-    }
-
-    if (winningTeam.ranking !== 1) {
-      return res.status(400).json({
-        message: "L'équipe gagnante doit être classée 1ère",
-      });
-    }
-
-    tournament.finished = true;
-    tournament.winningTeam = winningTeam;
-    await tournament.save();
-
-    res.status(200).json(tournament);
-  } catch (error) {
-    res.status(500).json({
-      message: "Erreur lors de la finalisation du tournoi",
       error,
     });
   }

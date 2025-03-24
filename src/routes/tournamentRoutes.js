@@ -15,6 +15,7 @@ const {
   updateTeamRanking,
   createDiscordChannels,
   updateTournamentTeams,
+  markTournamentAsFinished,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const { create } = require("connect-mongo");
@@ -40,6 +41,10 @@ router.route("/:id/unregister").post(protect, unregisterPlayer); // Ajout de la 
 
 // Nouvelle route pour mettre à jour le score d'une équipe
 //router.route("/:id/teams/:teamId/score").put(protect, admin, updateTeamScore);
+
+router
+  .route("/:id/mark-finished")
+  .put(protect, admin, markTournamentAsFinished);
 
 // Nouvelle route pour le check-in d'un joueur
 router.route("/:id/check-in").post(protect, checkInPlayer);

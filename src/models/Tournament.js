@@ -15,7 +15,6 @@ const tournamentSchema = new mongoose.Schema({
   discordChannelName: { type: String, required: true },
   players: [{ type: Schema.Types.ObjectId, ref: "Player" }], // On garde les IDs
   teams: [teamSchema],
-  winningTeam: { type: teamSchema },
   finished: { type: Boolean, default: false },
   description: { type: String },
   checkIns: {

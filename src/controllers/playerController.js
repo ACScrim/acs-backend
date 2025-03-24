@@ -143,51 +143,68 @@ exports.getPlayerRankings = async (req, res) => {
     );
 
     const playerRankings = players.map((player) => {
+      // Filtrer les tournois auxquels le joueur a participé
       const playerTournaments = tournaments.filter((tournament) =>
         tournament.teams.some((team) =>
-          team.players.some((p) => p._id.equals(player._id))
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
         )
       );
-
+      // Calculer le total des points
       const totalPoints = playerTournaments.reduce((sum, tournament) => {
         const playerTeam = tournament.teams.find((team) =>
-          team.players.some((p) => p._id.equals(player._id))
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
         );
-        const points = playerTeam ? playerTeam.score : 0;
+        const points = playerTeam ? playerTeam.score || 0 : 0;
         return sum + points;
       }, 0);
 
-      const totalVictories = playerTournaments.filter(
-        (tournament) =>
-          tournament.winningTeam &&
-          tournament.winningTeam.players.some((p) => p._id.equals(player._id))
-      ).length;
-
-      // Modifier cette partie pour utiliser le rang au lieu du résultat
-      // et inclure le nombre total d'équipes
-      const tournamentsParticipated = playerTournaments.map((tournament) => {
+      // Vérifier explicitement les victoires basées sur le ranking
+      const victoriesWithDetails = playerTournaments.filter((tournament) => {
         // Trouver l'équipe du joueur dans ce tournoi
         const playerTeam = tournament.teams.find((team) =>
-          team.players.some((p) => p._id.equals(player._id))
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
         );
 
-        // Récupérer le rang de l'équipe du joueur
-        const rank = playerTeam ? playerTeam.ranking : null;
+        // Vérifier si cette équipe a un ranking de 1
+        const isWinner = playerTeam && playerTeam.ranking === 1;
 
-        // Récupérer le nombre total d'équipes dans le tournoi
+        return isWinner;
+      });
+
+      // Compter le nombre de victoires
+      const totalVictories = victoriesWithDetails.length;
+
+      // Détails des tournois auxquels le joueur a participé
+      const tournamentsParticipated = playerTournaments.map((tournament) => {
+        const playerTeam = tournament.teams.find((team) =>
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
+        );
+
+        const rank = playerTeam ? playerTeam.ranking || null : null;
         const numberOfTeams = tournament.teams ? tournament.teams.length : 0;
 
         return {
           _id: tournament._id,
           name: tournament.name,
           date: tournament.date,
+          game: tournament.game,
           rank: rank,
           teamName: playerTeam ? playerTeam.name : "Équipe inconnue",
-          // Ajouter le nombre total d'équipes
           numberOfTeams: numberOfTeams,
-          winningTeamId: tournament.winningTeam
-            ? tournament.winningTeam._id
-            : null,
+          // L'équipe gagnante est désormais déterminée par le ranking=1
+          isWinner: playerTeam && playerTeam.ranking === 1,
         };
       });
 
@@ -201,10 +218,20 @@ exports.getPlayerRankings = async (req, res) => {
       };
     });
 
-    // Trier les joueurs par points décroissants
-    playerRankings.sort((a, b) => b.totalPoints - a.totalPoints);
+    // Filtrer les joueurs qui ont participé à au moins un tournoi
+    const activePlayerRankings = playerRankings.filter(
+      (p) => p.totalTournaments > 0
+    );
 
-    res.status(200).json(playerRankings);
+    // Trier les joueurs par victoires, puis points
+    activePlayerRankings.sort((a, b) => {
+      if (b.totalVictories !== a.totalVictories) {
+        return b.totalVictories - a.totalVictories;
+      }
+      return b.totalPoints - a.totalPoints;
+    });
+
+    res.status(200).json(activePlayerRankings);
   } catch (error) {
     console.error(
       "Erreur lors de la récupération du classement des joueurs:",
@@ -217,34 +244,75 @@ exports.getPlayerRankings = async (req, res) => {
   }
 };
 // Endpoint pour récupérer le classement des joueurs par jeu
+// Endpoint pour récupérer le classement des joueurs par jeu
 exports.getPlayerRankingsByGame = async (req, res) => {
   const { gameId } = req.params;
   try {
     const players = await Player.find();
-    const tournaments = await Tournament.find({ game: gameId }).populate(
-      "teams.players"
-    );
+    const tournaments = await Tournament.find({
+      game: gameId,
+      finished: true, // Uniquement les tournois terminés
+    }).populate("teams.players");
 
     const playerRankings = players.map((player) => {
+      // Filtrer les tournois auxquels le joueur a participé
       const playerTournaments = tournaments.filter((tournament) =>
         tournament.teams.some((team) =>
-          team.players.some((p) => p._id.equals(player._id))
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
         )
       );
 
+      // Calculer le total des points
       const totalPoints = playerTournaments.reduce((sum, tournament) => {
         const playerTeam = tournament.teams.find((team) =>
-          team.players.some((p) => p._id.equals(player._id))
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
         );
-        const points = playerTeam ? playerTeam.score : 0;
+        const points = playerTeam ? playerTeam.score || 0 : 0;
         return sum + points;
       }, 0);
 
-      const totalVictories = playerTournaments.filter(
-        (tournament) =>
-          tournament.winningTeam &&
-          tournament.winningTeam.players.some((p) => p._id.equals(player._id))
-      ).length;
+      // Calculer les victoires en utilisant le ranking des équipes
+      const totalVictories = playerTournaments.filter((tournament) => {
+        // Trouver l'équipe du joueur dans ce tournoi
+        const playerTeam = tournament.teams.find((team) =>
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
+        );
+
+        // Vérifier si cette équipe a un ranking de 1 (gagnante)
+        return playerTeam && playerTeam.ranking === 1;
+      }).length;
+
+      // Détails des tournois auxquels le joueur a participé
+      const tournamentsParticipated = playerTournaments.map((tournament) => {
+        const playerTeam = tournament.teams.find((team) =>
+          team.players.some(
+            (p) =>
+              p._id && player._id && p._id.toString() === player._id.toString()
+          )
+        );
+
+        const rank = playerTeam ? playerTeam.ranking || null : null;
+        const numberOfTeams = tournament.teams ? tournament.teams.length : 0;
+
+        return {
+          _id: tournament._id,
+          name: tournament.name,
+          date: tournament.date,
+          rank: rank,
+          teamName: playerTeam ? playerTeam.name : "Équipe inconnue",
+          numberOfTeams: numberOfTeams,
+          isWinner: playerTeam && playerTeam.ranking === 1,
+        };
+      });
 
       return {
         playerId: player._id,
@@ -252,17 +320,33 @@ exports.getPlayerRankingsByGame = async (req, res) => {
         totalPoints,
         totalTournaments: playerTournaments.length,
         totalVictories,
+        tournamentsParticipated,
       };
     });
 
-    playerRankings.sort((a, b) => b.totalPoints - a.totalPoints);
+    // Filtrer les joueurs qui ont participé à au moins un tournoi
+    const activePlayerRankings = playerRankings.filter(
+      (p) => p.totalTournaments > 0
+    );
 
-    res.status(200).json(playerRankings);
+    // Trier d'abord par victoires, puis par points
+    activePlayerRankings.sort((a, b) => {
+      if (b.totalVictories !== a.totalVictories) {
+        return b.totalVictories - a.totalVictories;
+      }
+      return b.totalPoints - a.totalPoints;
+    });
+
+    res.status(200).json(activePlayerRankings);
   } catch (error) {
+    console.error(
+      "Erreur lors de la récupération du classement par jeu:",
+      error
+    );
     res.status(500).json({
       message:
         "Erreur lors de la récupération du classement des joueurs par jeu",
-      error,
+      error: error.message,
     });
   }
 };

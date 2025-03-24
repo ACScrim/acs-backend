@@ -18,6 +18,7 @@ passport.use(
       scope: ["identify", "email", "guilds"],
     },
     async (accessToken, refreshToken, profile, done) => {
+      console.log("Discord profile:", profile);
       try {
         // Vérifier si les guilds sont présents dans le profil
         if (!profile.guilds) {
@@ -62,7 +63,7 @@ passport.use(
         if (!user) {
           // Créer un nouvel utilisateur
           user = await User.create({
-            username: profile.username,
+            username: profile.global_name,
             email: profile.email,
             discordId: profile.id,
             accessToken,
@@ -81,11 +82,11 @@ passport.use(
           }
 
           // Vérifier si le nom d'utilisateur a changé
-          if (user.username !== profile.username) {
+          if (user.username !== profile.global_name) {
             console.log(
-              `Mise à jour du nom d'utilisateur: ${user.username} -> ${profile.username}`
+              `Mise à jour du nom d'utilisateur: ${user.username} -> ${profile.global_name}`
             );
-            user.username = profile.username;
+            user.username = profile.global_name;
           }
 
           // Sauvegarder les modifications

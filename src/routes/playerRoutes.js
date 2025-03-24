@@ -18,6 +18,7 @@ const router = express.Router();
 router.route("/").get(protect, getPlayers).post(protect, admin, addPlayer);
 router.get("/rankings", getPlayerRankings);
 router.get("/rankings/game/:gameId", getPlayerRankingsByGame);
+router.route("/update-username").post(protect, admin, updatePlayerUsername);
 
 router.route("/search").get(searchPlayers);
 
@@ -28,6 +29,5 @@ router.get("/profile/:id", getPlayerProfile);
 
 router.route("/:id").delete(protect, admin, deletePlayer);
 router.route("/synchronize").post(protect, admin, synchronizePlayers);
-router.route("/update-username").post(protect, admin, updatePlayerUsername);
 
 module.exports = router;

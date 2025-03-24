@@ -18,7 +18,6 @@ passport.use(
       scope: ["identify", "email", "guilds"],
     },
     async (accessToken, refreshToken, profile, done) => {
-      console.log("Discord profile:", profile);
       try {
         // Vérifier si les guilds sont présents dans le profil
         if (!profile.guilds) {

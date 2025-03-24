@@ -114,10 +114,10 @@ exports.synchronizePlayers = async (req, res) => {
 
 // Endpoint pour mettre à jour le nom d'utilisateur d'un joueur
 exports.updatePlayerUsername = async (req, res) => {
-  const { id, username } = req.body;
+  const { playerId, username } = req.body;
 
   try {
-    const player = await Player.findById(id);
+    const player = await Player.findById(playerId);
     if (!player) {
       return res.status(404).json({ message: "Joueur non trouvé" });
     }

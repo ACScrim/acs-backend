@@ -14,6 +14,7 @@ const {
   checkInPlayer,
   updateTeamRanking,
   createDiscordChannels,
+  updateTournamentTeams,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const { create } = require("connect-mongo");
@@ -26,6 +27,7 @@ router
   .get(getTournamentById)
   .put(protect, admin, updateTournament)
   .delete(protect, admin, deleteTournament);
+router.put("/:id/teams", admin, updateTournamentTeams);
 
 router.route("/game/:gameId").get(protect, getTournamentsByGame);
 router.route("/:id/finish").put(protect, admin, finishTournament);

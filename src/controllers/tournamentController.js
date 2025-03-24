@@ -51,7 +51,6 @@ exports.updateTournament = async (req, res) => {
       description,
     } = req.body;
 
-    console.log("teams", teams);
     // Récupérer le tournoi existant pour la mise à jour
     const tournament = await Tournament.findById(id);
     if (!tournament) {
@@ -273,6 +272,51 @@ exports.generateTeams = async (req, res) => {
   }
 };
 
+/**
+ * Met à jour uniquement les équipes d'un tournoi
+ * Endpoint dédié pour optimiser la gestion des équipes
+ */
+exports.updateTournamentTeams = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { teams } = req.body;
+
+    if (!teams || !Array.isArray(teams)) {
+      return res
+        .status(400)
+        .json({ message: "Les équipes doivent être fournies dans un tableau" });
+    }
+
+    // Récupérer le tournoi existant
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    // Mise à jour des équipes uniquement
+    tournament.teams = teams;
+
+    // Sauvegarder le tournoi avec ses nouvelles équipes
+    await tournament.save();
+
+    // Renvoyer le tournoi mis à jour (populé pour avoir toutes les données des équipes)
+    const updatedTournament = await Tournament.findById(id).populate(
+      "teams.players"
+    );
+
+    res.status(200).json({
+      message: "Équipes mises à jour avec succès",
+      tournament: updatedTournament,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour des équipes:", error);
+    res.status(500).json({
+      message: "Erreur lors de la mise à jour des équipes",
+      error: error.message,
+    });
+  }
+};
+
 // Mettre à jour le classement d'une équipe dans un tournoi
 exports.updateTeamRanking = async (req, res) => {
   try {
@@ -463,7 +507,6 @@ exports.checkInPlayer = async (req, res) => {
 
 exports.createDiscordChannels = async (req, res) => {
   try {
-    console.log(req.body);
     const { teams } = req.body;
     const nomsTeam = teams.map((team) => team.name);
     await deleteAndCreateChannels(nomsTeam);

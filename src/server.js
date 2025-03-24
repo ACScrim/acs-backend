@@ -55,11 +55,11 @@ app.use(cookieParser());
 app.use(helmet());
 
 // Limiter les requêtes à 100 par IP toutes les 15 minutes
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 350,
-});
-app.use(limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 350,
+// });
+// app.use(limiter);
 
 // Configurer CORS pour autoriser les requêtes depuis le frontend
 const allowedOrigins = process.env.CORS_ORIGIN.split(",");

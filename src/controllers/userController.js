@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Player = require("../models/Player");
 
 exports.getUserById = async (req, res) => {
   try {
@@ -44,6 +45,44 @@ exports.updateUserRole = async (req, res) => {
     res.status(500).json({
       message: "Erreur lors de la mise à jour du rôle de l'utilisateur",
       error,
+    });
+  }
+};
+
+/**
+ * Supprime un utilisateur et le joueur associé
+ */
+exports.deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Vérifier que l'utilisateur existe
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // Vérifier que l'utilisateur n'est pas un superadmin
+    if (user.role === "superadmin") {
+      return res.status(403).json({
+        message: "Impossible de supprimer un superadmin",
+      });
+    }
+
+    // Supprimer le joueur associé si existant
+    await Player.findOneAndDelete({ userId: userId });
+
+    // Supprimer l'utilisateur
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({
+      message: "Utilisateur et données associées supprimés avec succès",
+    });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de l'utilisateur:", error);
+    res.status(500).json({
+      message: "Erreur lors de la suppression de l'utilisateur",
+      error: error.message,
     });
   }
 };

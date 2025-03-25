@@ -6,6 +6,7 @@ const {
   EmbedBuilder,
 } = require("discord.js");
 const winston = require("winston");
+const Player = require("../models/Player");
 
 // Récupérer les variables d'environnement
 const token = process.env.DISCORD_TOKEN;
@@ -345,6 +346,154 @@ const deleteAndCreateChannels = async (nomsTeam) => {
   }
 };
 
+/**
+ * Formate la date en format français lisible
+ * @param {Date} date
+ * @returns {string}
+ */
+function formatFrenchDate(date) {
+  const options = {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  };
+  return new Date(date).toLocaleDateString("fr-FR", options);
+}
+/**
+ * Met à jour le message d'inscription pour un tournoi
+ * @param {Object} tournament - L'objet tournoi
+ * @returns {Promise<boolean>} Succès ou échec de l'opération
+ */
+const updateTournamentSignupMessage = async (tournament) => {
+  try {
+    logger.info(
+      `Préparation du message d'inscription pour "${tournament.name}"`
+    );
+
+    const guild = await fetchGuild();
+    if (!guild) {
+      logger.error("Impossible de récupérer le serveur Discord");
+      return false;
+    }
+
+    // Récupération et sélection du canal cible
+    const channels = await guild.channels.fetch();
+    const targetChannel = findTargetChannel(
+      channels,
+      tournament.discordChannelName
+    );
+
+    if (!targetChannel) {
+      logger.error("Aucun canal texte trouvé");
+      return false;
+    }
+
+    // Récupération des noms des joueurs
+    const playerNames = await getPlayerNames(tournament.players || []);
+
+    // Création de l'embed
+    const embed = createSignupEmbed(tournament, playerNames);
+
+    // Recherche et mise à jour du message existant
+    const existingMessage = await findExistingMessage(
+      targetChannel,
+      tournament.name
+    );
+
+    if (existingMessage) {
+      try {
+        await existingMessage.edit({
+          content: `**${
+            tournament.name
+          }** - Liste des inscriptions mise à jour <t:${Math.floor(
+            Date.now() / 1000
+          )}:R>`,
+          embeds: [embed],
+        });
+        logger.info(`Message mis à jour pour ${tournament.name}`);
+        return true;
+      } catch (editError) {
+        logger.error(`Échec de la modification:`, editError);
+      }
+    }
+
+    // Création d'un nouveau message si échec de la modification ou message inexistant
+    await targetChannel.send({
+      content: `📣 **INSCRIPTIONS OUVERTES: ${tournament.name}**`,
+      embeds: [embed],
+    });
+
+    logger.info(`Nouveau message créé pour ${tournament.name}`);
+    return true;
+  } catch (error) {
+    logger.error(`Erreur lors de la mise à jour du message:`, error);
+    return false;
+  }
+};
+
+// Fonctions helper extraites
+function findTargetChannel(channels, discordChannelName) {
+  // Recherche par nom spécifié
+  if (discordChannelName) {
+    const channel = channels.find(
+      (c) =>
+        c.name.toLowerCase() === discordChannelName.toLowerCase() &&
+        c.type === ChannelType.GuildText
+    );
+    if (channel) return channel;
+  }
+}
+
+async function getPlayerNames(playerIds) {
+  if (!playerIds.length) return [];
+
+  try {
+    const users = await Promise.all(playerIds.map((id) => Player.findById(id)));
+    return users
+      .filter((user) => user?.username)
+      .map((user) => user.username)
+      .sort();
+  } catch (error) {
+    logger.error("Erreur récupération utilisateurs:", error);
+    return [`${playerIds.length} joueurs inscrits (IDs uniquement)`];
+  }
+}
+
+function createSignupEmbed(tournament, playerNames) {
+  const formattedDate = formatFrenchDate(tournament.date);
+
+  return new EmbedBuilder()
+    .setColor("#0099ff")
+    .setTitle(`📝 Inscriptions: ${tournament.name}`)
+    .setDescription(
+      `Le tournoi aura lieu le **${formattedDate}**\n\n` +
+        `Pour vous inscrire ou vous désinscrire, rendez-vous sur [acscrim.fr](https://acscrim.fr/tournois-a-venir)`
+    )
+    .addFields(
+      {
+        name: "Jeu",
+        value: tournament.game?.name || "Non spécifié",
+        inline: true,
+      },
+      {
+        name: `Participants (${playerNames.length})`,
+        value:
+          playerNames.length > 0 ? playerNames.join(", ") : "Aucun participant",
+      }
+    )
+    .setTimestamp();
+}
+
+async function findExistingMessage(channel, tournamentName) {
+  const messages = await channel.messages.fetch({ limit: 100 });
+  return messages.find(
+    (msg) => msg.embeds?.[0]?.title === `📝 Inscriptions: ${tournamentName}`
+  );
+}
+
 // Log in to Discord with your client's token
 client
   .login(token)
@@ -354,4 +503,8 @@ client
   );
 
 // Exporter les fonctions
-module.exports = { deleteAndCreateChannels, sendTournamentReminder };
+module.exports = {
+  deleteAndCreateChannels,
+  sendTournamentReminder,
+  updateTournamentSignupMessage,
+};

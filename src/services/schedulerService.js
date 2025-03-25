@@ -1,5 +1,8 @@
 const Tournament = require("../models/Tournament");
-const { sendTournamentReminder } = require("../discord-bot/index");
+const {
+  sendTournamentReminder,
+  updateTournamentSignupMessage,
+} = require("../discord-bot/index");
 const winston = require("winston");
 
 // Utiliser le logger Winston déjà configuré dans l'application
@@ -31,9 +34,6 @@ const checkUpcomingTournaments = async () => {
     logger.info(
       `Total des tournois dans la base de données: ${allTournaments.length}`
     );
-
-    // Logs existants pour vérifier chaque tournoi
-    // ...votre code actuel pour le logging...
 
     // Requête modifiée: trouver tous les tournois qui commencent dans les prochaines 24h
     const upcomingTournaments = await Tournament.find({
@@ -79,17 +79,69 @@ const checkUpcomingTournaments = async () => {
   }
 };
 
+// Fonction modifiée pour mettre à jour les messages d'inscription de tous les tournois à venir
+const updateSignupMessages = async () => {
+  try {
+    const now = new Date();
+    logger.info(
+      `[Inscription] Mise à jour des messages d'inscription: ${now.toISOString()}`
+    );
+
+    // Trouver TOUS les tournois à venir qui ne sont pas terminés
+    const upcomingTournaments = await Tournament.find({
+      date: { $gt: now }, // Commence dans le futur
+      finished: { $ne: true }, // Pas encore terminé
+    })
+      .sort({ date: 1 }) // Tri par date ascendante (plus proche au plus lointain)
+      .populate("game");
+
+    if (!upcomingTournaments || upcomingTournaments.length === 0) {
+      logger.info("[Inscription] Aucun tournoi à venir n'a été trouvé");
+      return;
+    }
+
+    logger.info(
+      `[Inscription] ${upcomingTournaments.length} tournois à venir trouvés`
+    );
+
+    // Traiter chaque tournoi individuellement
+    for (const tournament of upcomingTournaments) {
+      // Mise à jour du message d'inscription pour ce tournoi
+      const success = await updateTournamentSignupMessage(tournament);
+
+      if (success) {
+        logger.info(
+          `[Inscription] Message d'inscription mis à jour pour ${tournament.name}`
+        );
+      } else {
+        logger.error(
+          `[Inscription] Échec de la mise à jour du message pour ${tournament.name}`
+        );
+      }
+    }
+  } catch (error) {
+    logger.error(
+      "[Inscription] Erreur lors de la mise à jour des messages d'inscription:",
+      error
+    );
+  }
+};
+
 // Démarrer la planification
 const startScheduler = () => {
   logger.info("Démarrage du planificateur de tournois");
 
   // Exécuter immédiatement au démarrage
   checkUpcomingTournaments();
+  updateSignupMessages();
 
   // Puis vérifier toutes les heures
   setInterval(checkUpcomingTournaments, 60 * 60 * 1000);
 
+  // Mettre à jour les messages d'inscription toutes les heures
+  setInterval(updateSignupMessages, 60 * 60 * 1000);
+
   logger.info("Planificateur de tournois démarré avec intervalle d'une heure");
 };
 
-module.exports = { startScheduler };
+module.exports = { startScheduler, updateSignupMessages };

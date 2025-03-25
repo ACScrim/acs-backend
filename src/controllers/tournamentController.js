@@ -2,7 +2,7 @@ const Tournament = require("../models/Tournament");
 const Player = require("../models/Player");
 const User = require("../models/User");
 const { deleteAndCreateChannels } = require("../discord-bot/index.js");
-
+const { updateSignupMessages } = require("../services/schedulerService");
 // Créer un tournoi
 exports.createTournament = async (req, res) => {
   try {
@@ -29,6 +29,7 @@ exports.createTournament = async (req, res) => {
     });
 
     await newTournament.save();
+    await updateSignupMessages();
     res.status(201).json(newTournament);
   } catch (error) {
     res

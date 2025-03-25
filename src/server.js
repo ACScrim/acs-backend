@@ -11,6 +11,7 @@ const rateLimit = require("express-rate-limit");
 const winston = require("winston");
 const discordbot = require("./discord-bot/index.js");
 const { startScheduler } = require("./services/schedulerService");
+const gameProposalRoutes = require("./routes/gameProposalRoutes");
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -113,6 +114,7 @@ app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/games", gameRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/badges", badgeRoutes);
+app.use("/api/game-proposals", gameProposalRoutes);
 
 // Middleware pour les erreurs globales
 app.use((err, req, res, next) => {

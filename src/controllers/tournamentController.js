@@ -113,9 +113,14 @@ exports.updateTournament = async (req, res) => {
 
     if (tournament.teams && teams) {
       for (let team of tournament.teams) {
-        team.name = teams.find(
+        const matchingTeam = teams.find(
           (t) => t._id.toString() === team._id.toString()
-        ).name;
+        );
+
+        // Vérifier si une équipe correspondante a été trouvée
+        if (matchingTeam) {
+          team.name = matchingTeam.name;
+        }
       }
     }
 

@@ -541,8 +541,8 @@ exports.updateTeamScore = async (req, res) => {
     team.score = score;
 
     // Modifier le nom de l'équipe pour inclure le score entre parenthèses
-    const baseName = team.name.replace(/ \(\d+\)$/, ""); // Enlever score existant s'il y en a un
-    team.name = `${baseName} (${score})`;
+    const baseName = team.name.replace(/ \(\d+ Pts\)$/, ""); // Enlever score existant s'il y en a un
+    team.name = `${baseName} (${score} Pts)`;
 
     await tournament.save();
 
@@ -551,6 +551,34 @@ exports.updateTeamScore = async (req, res) => {
     res.status(500).json({
       message: "Erreur lors de la mise à jour du score de l'équipe",
       error,
+    });
+  }
+};
+
+// Supprimer toutes les équipes d'un tournoi
+exports.deleteAllTeams = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    // Réinitialiser le tableau d'équipes à un tableau vide
+    tournament.teams = [];
+
+    await tournament.save();
+
+    res.status(200).json({
+      message: "Toutes les équipes ont été supprimées avec succès",
+      tournament,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la suppression des équipes:", error);
+    res.status(500).json({
+      message: "Erreur lors de la suppression des équipes",
+      error: error.message,
     });
   }
 };

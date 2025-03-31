@@ -17,6 +17,7 @@ const {
   updateTournamentTeams,
   markTournamentAsFinished,
   unmarkTournamentAsFinished,
+  deleteAllTeams,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const { create } = require("connect-mongo");
@@ -53,5 +54,5 @@ router.route("/:id/check-in").post(protect, checkInPlayer);
 router.put("/:id/teams/:teamId/ranking", updateTeamRanking);
 
 router.post("/create-discord-channels", createDiscordChannels);
-
+router.route("/:id/delete-teams").delete(protect, admin, deleteAllTeams);
 module.exports = router;

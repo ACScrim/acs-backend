@@ -89,6 +89,12 @@ app.use(
       mongoUrl: process.env.MONGODB_URI,
       collectionName: "sessions",
       ttl: 3 * 24 * 60 * 60, // 3 jours en secondes
+      autoRemove: "native", // Utilise l'index TTL natif de MongoDB (important!)
+      touchAfter: 24 * 60 * 60, // Optimisation: ne met à jour la session que toutes les 24h
+      crypto: {
+        // Pour sécuriser les données de session
+        secret: process.env.JWT_SECRET,
+      },
     }),
     cookie: {
       maxAge: 3 * 24 * 60 * 60 * 1000, // 3 jours en millisecondes

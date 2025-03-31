@@ -500,3 +500,57 @@ exports.createDiscordChannels = async (req, res) => {
       .json({ message: "Erreur lors de la création des salons vocaux", error });
   }
 };
+exports.unmarkTournamentAsFinished = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    tournament.finished = false;
+    await tournament.save();
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de l'annulation de la finalisation du tournoi",
+      error,
+    });
+  }
+};
+
+// Mettre à jour le score d'une équipe dans un tournoi
+exports.updateTeamScore = async (req, res) => {
+  try {
+    const { id, teamId } = req.params;
+    const { score } = req.body;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    const team = tournament.teams.id(teamId);
+    if (!team) {
+      return res.status(404).json({ message: "Équipe non trouvée" });
+    }
+
+    // Mettre à jour le score de l'équipe
+    team.score = score;
+
+    // Modifier le nom de l'équipe pour inclure le score entre parenthèses
+    const baseName = team.name.replace(/ \(\d+\)$/, ""); // Enlever score existant s'il y en a un
+    team.name = `${baseName} (${score})`;
+
+    await tournament.save();
+
+    res.status(200).json(tournament);
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la mise à jour du score de l'équipe",
+      error,
+    });
+  }
+};

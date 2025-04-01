@@ -6,7 +6,7 @@ exports.getGames = async (req, res) => {
 };
 
 exports.addGame = async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, imageUrl } = req.body;
 
   // Vérifier si un jeu avec le même nom existe déjà
   const gameExists = await Game.findOne({ name });
@@ -15,7 +15,7 @@ exports.addGame = async (req, res) => {
     return res.status(400).json({ message: "Ce jeu a déjà été créé" });
   }
 
-  const game = new Game({ name, description });
+  const game = new Game({ name, description, imageUrl });
   await game.save();
   res.status(201).json(game);
 };
@@ -26,6 +26,7 @@ exports.updateGame = async (req, res) => {
   if (game) {
     game.name = req.body.name || game.name;
     game.description = req.body.description || game.description;
+    game.imageUrl = req.body.imageUrl || game.imageUrl;
     const updatedGame = await game.save();
     res.json(updatedGame);
   } else {

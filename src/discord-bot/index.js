@@ -199,7 +199,7 @@ const sendTournamentReminder = async (tournament) => {
       await targetChannel.send({
         content:
           `**${tournament.name}** commence bientôt ! N'oubliez pas de faire votre check-in pour ce tournoi !\n` +
-          `Rendez-vous sur https://acscrim.fr/tournois-a-venir pour plus d'informations.`,
+          `Rendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
         embeds: [embed],
       });
 
@@ -470,7 +470,7 @@ function createSignupEmbed(tournament, playerNames) {
     .setTitle(`📝 Inscriptions: ${tournament.name}`)
     .setDescription(
       `Le tournoi aura lieu le **${formattedDate}**\n\n` +
-        `Pour vous inscrire ou vous désinscrire, rendez-vous sur [acscrim.fr](https://acscrim.fr/tournois-a-venir)`
+        `Pour vous inscrire ou vous désinscrire, rendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})\n`
     )
     .addFields(
       {

@@ -392,7 +392,10 @@ const updateTournamentSignupMessage = async (tournament) => {
     }
 
     // Récupération des noms des joueurs
-    const playerNames = await getPlayerNames(tournament.players || []);
+    const playerNames = await getPlayerNames(
+      tournament.players || [],
+      tournament
+    );
 
     // Création de l'embed
     const embed = createSignupEmbed(tournament, playerNames);
@@ -447,15 +450,41 @@ function findTargetChannel(channels, discordChannelName) {
   }
 }
 
-async function getPlayerNames(playerIds) {
+/**
+ * Récupère et trie les noms des joueurs par date d'inscription
+ * @param {Array} playerIds - IDs des joueurs
+ * @param {Object} tournament - Document du tournoi contenant les dates d'inscription
+ * @returns {Promise<Array>} - Tableau de noms de joueurs triés par ancienneté d'inscription
+ */
+async function getPlayerNames(playerIds, tournament) {
   if (!playerIds.length) return [];
 
   try {
-    const users = await Promise.all(playerIds.map((id) => Player.findById(id)));
-    return users
-      .filter((user) => user?.username)
-      .map((user) => user.username)
-      .sort();
+    // Récupération des données des joueurs
+    const players = await Promise.all(
+      playerIds.map((id) => Player.findById(id))
+    );
+    const validPlayers = players.filter((player) => player?.username);
+
+    // Créer un tableau d'objets avec les noms et les dates d'inscription
+    const playersWithDates = validPlayers.map((player) => {
+      const playerId = player._id.toString();
+      // Récupérer la date d'inscription depuis le tournoi
+      const registrationDate = tournament.registrationDates?.get(playerId)
+        ? new Date(tournament.registrationDates.get(playerId))
+        : new Date(); // Date par défaut si manquante
+
+      return {
+        username: player.username,
+        registrationDate: registrationDate,
+      };
+    });
+
+    // Trier les joueurs par date d'inscription (de la plus ancienne à la plus récente)
+    playersWithDates.sort((a, b) => a.registrationDate - b.registrationDate);
+
+    // Retourner uniquement les noms d'utilisateurs, maintenant triés
+    return playersWithDates.map((player) => player.username);
   } catch (error) {
     logger.error("Erreur récupération utilisateurs:", error);
     return [`${playerIds.length} joueurs inscrits (IDs uniquement)`];

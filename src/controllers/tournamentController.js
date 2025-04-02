@@ -390,6 +390,9 @@ exports.registerPlayer = async (req, res) => {
       tournament.players.push(player._id);
       tournament.checkIns.set(player._id, false); // Ajout dans checkIns avec "false"
 
+      // Enregistrer la date d'inscription
+      tournament.registrationDates.set(player._id, new Date());
+
       // Ajouter le joueur à une équipe
       if (tournament.teams && tournament.teams.length > 0) {
         // Trouver l'équipe la moins nombreuse
@@ -437,6 +440,7 @@ exports.unregisterPlayer = async (req, res) => {
     if (playerIndex !== -1) {
       tournament.players.splice(playerIndex, 1);
       tournament.checkIns.delete(player._id); // Supprime le check-in
+      tournament.registrationDates.delete(player._id); // Supprime la date d'inscription
 
       // Retirer également le joueur de son équipe s'il en fait partie
       if (tournament.teams && tournament.teams.length > 0) {

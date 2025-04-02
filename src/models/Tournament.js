@@ -22,6 +22,11 @@ const tournamentSchema = new mongoose.Schema({
     of: Boolean, // Clé = ID du joueur, Valeur = true/false
     default: {},
   },
+  registrationDates: {
+    type: Map,
+    of: Date, // Clé = ID du joueur, Valeur = Date d'inscription
+    default: {},
+  },
   reminderSent: {
     type: Boolean,
     default: false,

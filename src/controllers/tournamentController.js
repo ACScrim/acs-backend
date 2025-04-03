@@ -77,6 +77,21 @@ exports.updateTournament = async (req, res) => {
     });
     tournament.checkIns = checkIns;
 
+    // Ajouter la date d'inscription pour les nouveaux joueurs
+    const currentDate = new Date();
+    addedPlayers.forEach((playerId) => {
+      if (!tournament.registrationDates.has(playerId)) {
+        tournament.registrationDates.set(playerId, currentDate);
+      }
+    });
+
+    // Supprimer les dates d'inscription pour les joueurs retirés
+    removedPlayers.forEach((playerId) => {
+      if (tournament.registrationDates.has(playerId)) {
+        tournament.registrationDates.delete(playerId);
+      }
+    });
+
     // 1. SUPPRIMER LES JOUEURS RETIRÉS DES ÉQUIPES
     if (tournament.teams && tournament.teams.length > 0) {
       for (let team of tournament.teams) {

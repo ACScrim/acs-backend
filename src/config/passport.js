@@ -62,7 +62,7 @@ passport.use(
         if (!user) {
           // Créer un nouvel utilisateur
           user = await User.create({
-            username: profile.global_name,
+            username: profile.global_name || profile.username, // Utiliser username comme fallback
             email: profile.email,
             discordId: profile.id,
             accessToken,
@@ -81,11 +81,12 @@ passport.use(
           }
 
           // Vérifier si le nom d'utilisateur a changé
-          if (user.username !== profile.global_name) {
+          const newUsername = profile.global_name || profile.username;
+          if (user.username !== newUsername) {
             console.log(
-              `Mise à jour du nom d'utilisateur: ${user.username} -> ${profile.global_name}`
+              `Mise à jour du nom d'utilisateur: ${user.username} -> ${newUsername}`
             );
-            user.username = profile.global_name;
+            user.username = newUsername;
           }
 
           // Sauvegarder les modifications

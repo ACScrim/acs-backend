@@ -3,11 +3,19 @@ const Player = require("../models/Player");
 const User = require("../models/User");
 const { deleteAndCreateChannels } = require("../discord-bot/index.js");
 const { updateSignupMessages } = require("../services/schedulerService");
+
 // Créer un tournoi
 exports.createTournament = async (req, res) => {
   try {
-    const { name, game, date, discordChannelName, players, description } =
-      req.body;
+    const {
+      name,
+      game,
+      date,
+      discordChannelName,
+      players,
+      description,
+      playerCap,
+    } = req.body;
 
     // Extraire uniquement les IDs des joueurs
     const playerIds = players.map((player) => player._id);
@@ -18,13 +26,41 @@ exports.createTournament = async (req, res) => {
       checkIns[id] = false;
     });
 
+    // Vérifier si le nombre de joueurs dépasse le cap (si un cap est défini)
+    let playersToAdd = playerIds;
+    let waitlistPlayers = [];
+    const cap = playerCap || 0;
+
+    if (cap > 0 && playerIds.length > cap) {
+      // Trier les joueurs par date d'inscription (les premiers inscrits sont prioritaires)
+      playersToAdd = playerIds.slice(0, cap);
+      waitlistPlayers = playerIds.slice(cap);
+    }
+
+    // Initialiser les dates d'inscription
+    const registrationDates = {};
+    const waitlistRegistrationDates = {};
+    const currentDate = new Date();
+
+    playerIds.forEach((id) => {
+      if (playersToAdd.includes(id)) {
+        registrationDates[id] = currentDate;
+      } else if (waitlistPlayers.includes(id)) {
+        waitlistRegistrationDates[id] = currentDate;
+      }
+    });
+
     const newTournament = new Tournament({
       name,
       game,
       date,
       discordChannelName,
-      players: playerIds,
+      players: playersToAdd,
+      waitlistPlayers,
+      playerCap: cap,
       checkIns,
+      registrationDates,
+      waitlistRegistrationDates,
       description,
     });
 
@@ -42,8 +78,15 @@ exports.createTournament = async (req, res) => {
 exports.updateTournament = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, date, discordChannelName, players, teams, description } =
-      req.body;
+    const {
+      name,
+      date,
+      discordChannelName,
+      players,
+      teams,
+      description,
+      playerCap,
+    } = req.body;
 
     // Récupérer le tournoi existant pour la mise à jour
     const tournament = await Tournament.findById(id);
@@ -54,21 +97,75 @@ exports.updateTournament = async (req, res) => {
     // Extraire les IDs des joueurs envoyés et existants
     const newPlayerIds = players.map((player) => player._id.toString());
     const existingPlayerIds = tournament.players.map((id) => id.toString());
+    const existingWaitlistIds = tournament.waitlistPlayers
+      ? tournament.waitlistPlayers.map((id) => id.toString())
+      : [];
 
-    // Identifier les joueurs ajoutés et supprimés
-    const addedPlayers = newPlayerIds.filter(
-      (id) => !existingPlayerIds.includes(id)
+    // Tous les joueurs (actifs + liste d'attente)
+    const allCurrentPlayers = [...existingPlayerIds, ...existingWaitlistIds];
+
+    // Identifier les joueurs totalement nouveaux et ceux supprimés
+    const totallyNewPlayers = newPlayerIds.filter(
+      (id) => !allCurrentPlayers.includes(id)
     );
-    const removedPlayers = existingPlayerIds.filter(
+    const totallyRemovedPlayers = allCurrentPlayers.filter(
       (id) => !newPlayerIds.includes(id)
     );
 
-    // Mettre à jour la liste des joueurs du tournoi
-    tournament.players = newPlayerIds;
+    // Mise à jour du playerCap
+    const oldCap = tournament.playerCap || 0;
+    const newCap = playerCap || 0;
+    tournament.playerCap = newCap;
 
-    // Mettre à jour les checkIns
+    // Logique pour gérer les listes en fonction du changement de cap
+    let finalPlayerList = [...newPlayerIds];
+    let finalWaitlist = [];
+
+    // Si un cap est défini (> 0)
+    if (newCap > 0) {
+      // Obtenir les dates d'inscription pour trier les joueurs
+      const allRegistrationDates = new Map();
+
+      // Fusionner les dates d'inscription des joueurs actifs et en liste d'attente
+      for (const [playerId, date] of Object.entries(
+        tournament.registrationDates || {}
+      )) {
+        allRegistrationDates.set(playerId, date);
+      }
+
+      for (const [playerId, date] of Object.entries(
+        tournament.waitlistRegistrationDates || {}
+      )) {
+        if (!allRegistrationDates.has(playerId)) {
+          allRegistrationDates.set(playerId, date);
+        }
+      }
+
+      // Ajouter la date actuelle pour les nouveaux joueurs
+      const currentDate = new Date();
+      totallyNewPlayers.forEach((playerId) => {
+        allRegistrationDates.set(playerId, currentDate);
+      });
+
+      // Trier les joueurs par date d'inscription (les plus anciens d'abord)
+      const sortedPlayers = [...newPlayerIds].sort((a, b) => {
+        const dateA = allRegistrationDates.get(a) || new Date();
+        const dateB = allRegistrationDates.get(b) || new Date();
+        return dateA - dateB;
+      });
+
+      // Diviser entre joueurs actifs et liste d'attente
+      finalPlayerList = sortedPlayers.slice(0, newCap);
+      finalWaitlist = sortedPlayers.slice(newCap);
+    }
+
+    // Mettre à jour les listes de joueurs
+    tournament.players = finalPlayerList;
+    tournament.waitlistPlayers = finalWaitlist;
+
+    // Mettre à jour les check-ins (uniquement pour les joueurs actifs)
     const checkIns = {};
-    newPlayerIds.forEach((id) => {
+    finalPlayerList.forEach((id) => {
       if (existingPlayerIds.includes(id) && tournament.checkIns.has(id)) {
         checkIns[id] = tournament.checkIns.get(id);
       } else {
@@ -77,55 +174,100 @@ exports.updateTournament = async (req, res) => {
     });
     tournament.checkIns = checkIns;
 
-    // Ajouter la date d'inscription pour les nouveaux joueurs
+    // Mettre à jour les dates d'inscription
+    // Pour les joueurs totalement nouveaux
     const currentDate = new Date();
-    addedPlayers.forEach((playerId) => {
-      if (!tournament.registrationDates.has(playerId)) {
-        tournament.registrationDates.set(playerId, currentDate);
+    totallyNewPlayers.forEach((playerId) => {
+      if (finalPlayerList.includes(playerId)) {
+        // Si le joueur est dans la liste principale
+        if (!tournament.registrationDates.has(playerId)) {
+          tournament.registrationDates.set(playerId, currentDate);
+        }
+      } else if (finalWaitlist.includes(playerId)) {
+        // Si le joueur est en liste d'attente
+        if (!tournament.waitlistRegistrationDates.has(playerId)) {
+          tournament.waitlistRegistrationDates.set(playerId, currentDate);
+        }
       }
     });
 
-    // Supprimer les dates d'inscription pour les joueurs retirés
-    removedPlayers.forEach((playerId) => {
+    // Pour les joueurs qui passent de la liste d'attente à la liste principale
+    const movedFromWaitlist = finalPlayerList.filter((id) =>
+      existingWaitlistIds.includes(id)
+    );
+    movedFromWaitlist.forEach((playerId) => {
+      // Copier la date d'inscription en liste d'attente vers la date d'inscription principale
+      if (tournament.waitlistRegistrationDates.has(playerId)) {
+        tournament.registrationDates.set(
+          playerId,
+          tournament.waitlistRegistrationDates.get(playerId)
+        );
+        tournament.waitlistRegistrationDates.delete(playerId);
+      }
+    });
+
+    // Pour les joueurs qui passent de la liste principale à la liste d'attente
+    const movedToWaitlist = finalWaitlist.filter((id) =>
+      existingPlayerIds.includes(id)
+    );
+    movedToWaitlist.forEach((playerId) => {
+      // Copier la date d'inscription principale vers la date d'inscription en liste d'attente
       if (tournament.registrationDates.has(playerId)) {
+        tournament.waitlistRegistrationDates.set(
+          playerId,
+          tournament.registrationDates.get(playerId)
+        );
         tournament.registrationDates.delete(playerId);
       }
     });
 
-    // 1. SUPPRIMER LES JOUEURS RETIRÉS DES ÉQUIPES
+    // Supprimer les dates d'inscription pour les joueurs totalement retirés
+    totallyRemovedPlayers.forEach((playerId) => {
+      if (tournament.registrationDates.has(playerId)) {
+        tournament.registrationDates.delete(playerId);
+      }
+      if (tournament.waitlistRegistrationDates.has(playerId)) {
+        tournament.waitlistRegistrationDates.delete(playerId);
+      }
+    });
+
+    // Gérer les équipes (uniquement pour les joueurs actifs, pas ceux en liste d'attente)
     if (tournament.teams && tournament.teams.length > 0) {
+      // 1. SUPPRIMER LES JOUEURS RETIRÉS DES ÉQUIPES
       for (let team of tournament.teams) {
         // Filtrer les joueurs retirés de l'équipe
         team.players = team.players.filter((playerId) =>
-          newPlayerIds.includes(playerId.toString())
+          finalPlayerList.includes(playerId.toString())
         );
       }
-    }
 
-    // 2. AJOUTER LES NOUVEAUX JOUEURS AUX ÉQUIPES
-    if (
-      tournament.teams &&
-      tournament.teams.length > 0 &&
-      addedPlayers.length > 0
-    ) {
-      // Pour chaque joueur ajouté
-      for (let addedPlayerId of addedPlayers) {
-        // Trouver l'équipe avec le moins de joueurs
-        let minTeam = tournament.teams[0];
-        let minPlayers = minTeam.players.length;
+      // 2. AJOUTER LES NOUVEAUX JOUEURS AUX ÉQUIPES
+      const playersToAddToTeams = finalPlayerList.filter(
+        (id) =>
+          !existingPlayerIds.includes(id) || movedFromWaitlist.includes(id)
+      );
 
-        for (let i = 1; i < tournament.teams.length; i++) {
-          if (tournament.teams[i].players.length < minPlayers) {
-            minTeam = tournament.teams[i];
-            minPlayers = minTeam.players.length;
+      if (playersToAddToTeams.length > 0) {
+        // Pour chaque joueur ajouté
+        for (let addedPlayerId of playersToAddToTeams) {
+          // Trouver l'équipe avec le moins de joueurs
+          let minTeam = tournament.teams[0];
+          let minPlayers = minTeam.players.length;
+
+          for (let i = 1; i < tournament.teams.length; i++) {
+            if (tournament.teams[i].players.length < minPlayers) {
+              minTeam = tournament.teams[i];
+              minPlayers = minTeam.players.length;
+            }
           }
-        }
 
-        // Ajouter le joueur à cette équipe
-        minTeam.players.push(addedPlayerId);
+          // Ajouter le joueur à cette équipe
+          minTeam.players.push(addedPlayerId);
+        }
       }
     }
 
+    // Mettre à jour les noms d'équipes si fournis
     if (tournament.teams && teams) {
       for (let team of tournament.teams) {
         const matchingTeam = teams.find(
@@ -150,7 +292,7 @@ exports.updateTournament = async (req, res) => {
 
     // Récupérer le tournoi mis à jour et peuplé pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players teams.players"
+      "game players waitlistPlayers teams.players"
     );
 
     res.status(200).json(updatedTournament);
@@ -180,7 +322,7 @@ exports.deleteTournament = async (req, res) => {
 exports.getTournaments = async (req, res) => {
   try {
     const tournaments = await Tournament.find().populate(
-      "game players teams.players description"
+      "game players waitlistPlayers playerCap teams.players description"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -196,7 +338,7 @@ exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players teams.players description"
+      "game players waitlistPlayers playerCap teams.players description"
     );
     res.status(200).json(tournament);
   } catch (error) {
@@ -401,14 +543,35 @@ exports.registerPlayer = async (req, res) => {
     if (!tournament)
       return res.status(404).json({ message: "Tournoi non trouvé" });
 
-    if (!tournament.players.includes(player._id)) {
+    // Vérifier si le joueur est déjà inscrit (dans la liste principale ou d'attente)
+    const isPlayerRegistered =
+      tournament.players.includes(player._id) ||
+      (tournament.waitlistPlayers &&
+        tournament.waitlistPlayers.includes(player._id));
+
+    if (isPlayerRegistered) {
+      return res
+        .status(400)
+        .json({ message: "Joueur déjà inscrit au tournoi" });
+    }
+
+    // Déterminer si on doit ajouter le joueur à la liste principale ou à la liste d'attente
+    const currentDate = new Date();
+
+    if (
+      tournament.playerCap > 0 &&
+      tournament.players.length >= tournament.playerCap
+    ) {
+      // Le cap est atteint, ajouter en liste d'attente
+      tournament.waitlistPlayers.push(player._id);
+      tournament.waitlistRegistrationDates.set(player._id, currentDate);
+    } else {
+      // Ajouter à la liste principale
       tournament.players.push(player._id);
-      tournament.checkIns.set(player._id, false); // Ajout dans checkIns avec "false"
+      tournament.registrationDates.set(player._id, currentDate);
+      tournament.checkIns.set(player._id, false);
 
-      // Enregistrer la date d'inscription
-      tournament.registrationDates.set(player._id, new Date());
-
-      // Ajouter le joueur à une équipe
+      // Ajouter le joueur à une équipe si des équipes existent
       if (tournament.teams && tournament.teams.length > 0) {
         // Trouver l'équipe la moins nombreuse
         let minTeam = tournament.teams[0];
@@ -421,11 +584,16 @@ exports.registerPlayer = async (req, res) => {
         // Ajouter le joueur à l'équipe la moins nombreuse
         minTeam.players.push(player._id);
       }
-
-      await tournament.save();
     }
 
-    res.status(200).json(tournament);
+    await tournament.save();
+
+    // Populer les données pour la réponse
+    const updatedTournament = await Tournament.findById(id).populate(
+      "game players waitlistPlayers teams.players"
+    );
+
+    res.status(200).json(updatedTournament);
   } catch (error) {
     res
       .status(500)
@@ -450,30 +618,107 @@ exports.unregisterPlayer = async (req, res) => {
     if (!tournament)
       return res.status(404).json({ message: "Tournoi non trouvé" });
 
-    // Retirer le joueur de la liste des participants
+    // Vérifier si le joueur est dans la liste principale
     const playerIndex = tournament.players.indexOf(player._id);
-    if (playerIndex !== -1) {
-      tournament.players.splice(playerIndex, 1);
-      tournament.checkIns.delete(player._id); // Supprime le check-in
-      tournament.registrationDates.delete(player._id); // Supprime la date d'inscription
+    const isInMainList = playerIndex !== -1;
 
-      // Retirer également le joueur de son équipe s'il en fait partie
+    // Vérifier si le joueur est dans la liste d'attente
+    const waitlistIndex = tournament.waitlistPlayers
+      ? tournament.waitlistPlayers.indexOf(player._id)
+      : -1;
+    const isInWaitlist = waitlistIndex !== -1;
+
+    if (!isInMainList && !isInWaitlist) {
+      return res.status(404).json({ message: "Joueur non inscrit au tournoi" });
+    }
+
+    // Si le joueur est dans la liste principale
+    if (isInMainList) {
+      // Supprimer le joueur de la liste principale
+      tournament.players.splice(playerIndex, 1);
+      tournament.checkIns.delete(player._id);
+      tournament.registrationDates.delete(player._id);
+
+      // Supprimer le joueur de son équipe
       if (tournament.teams && tournament.teams.length > 0) {
-        // Pour chaque équipe
         tournament.teams.forEach((team) => {
-          // Rechercher le joueur dans l'équipe
           const teamPlayerIndex = team.players.indexOf(player._id);
           if (teamPlayerIndex !== -1) {
-            // Retirer le joueur de l'équipe
             team.players.splice(teamPlayerIndex, 1);
           }
         });
       }
 
-      await tournament.save();
+      // Si un cap est défini et qu'il y a des joueurs en liste d'attente,
+      // promouvoir le premier joueur de la liste d'attente
+      if (
+        tournament.playerCap > 0 &&
+        tournament.waitlistPlayers &&
+        tournament.waitlistPlayers.length > 0
+      ) {
+        // Trier la liste d'attente par date d'inscription (le plus ancien d'abord)
+        const sortedWaitlist = [...tournament.waitlistPlayers].sort((a, b) => {
+          const dateA =
+            tournament.waitlistRegistrationDates.get(a.toString()) ||
+            new Date();
+          const dateB =
+            tournament.waitlistRegistrationDates.get(b.toString()) ||
+            new Date();
+          return dateA - dateB;
+        });
+
+        const promotedPlayerId = sortedWaitlist[0];
+
+        // Déplacer le joueur de la liste d'attente à la liste principale
+        tournament.waitlistPlayers = tournament.waitlistPlayers.filter(
+          (id) => id.toString() !== promotedPlayerId.toString()
+        );
+        tournament.players.push(promotedPlayerId);
+
+        // Déplacer la date d'inscription
+        const registrationDate = tournament.waitlistRegistrationDates.get(
+          promotedPlayerId.toString()
+        );
+        if (registrationDate) {
+          tournament.registrationDates.set(
+            promotedPlayerId.toString(),
+            registrationDate
+          );
+          tournament.waitlistRegistrationDates.delete(
+            promotedPlayerId.toString()
+          );
+        }
+
+        // Initialiser le check-in
+        tournament.checkIns.set(promotedPlayerId.toString(), false);
+
+        // Ajouter le joueur promu à l'équipe la moins nombreuse
+        if (tournament.teams && tournament.teams.length > 0) {
+          let minTeam = tournament.teams[0];
+          for (let team of tournament.teams) {
+            if (team.players.length < minTeam.players.length) {
+              minTeam = team;
+            }
+          }
+          minTeam.players.push(promotedPlayerId);
+        }
+      }
+    }
+    // Si le joueur est dans la liste d'attente
+    else if (isInWaitlist) {
+      // Supprimer le joueur de la liste d'attente
+      tournament.waitlistPlayers.splice(waitlistIndex, 1);
+      tournament.waitlistRegistrationDates.delete(player._id);
     }
 
-    res.status(200).json(tournament);
+    await tournament.save();
+
+    // Populer les données pour la réponse
+    const updatedTournament = await Tournament.findById(id).populate(
+      "game players waitlistPlayers waitlistRegistrationDates teams.players"
+    );
+
+    res.status(200).json(updatedTournament);
   } catch (error) {
     res
       .status(500)

@@ -3,7 +3,7 @@ const Schema = mongoose.Schema;
 
 const teamSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }], // On garde les IDs
+  players: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
   score: { type: Number, default: 0 },
   ranking: { type: Number, default: 0 },
 });
@@ -13,18 +13,26 @@ const tournamentSchema = new mongoose.Schema({
   game: { type: mongoose.Schema.Types.ObjectId, ref: "Game", required: true },
   date: { type: Date, required: true },
   discordChannelName: { type: String, required: true },
-  players: [{ type: Schema.Types.ObjectId, ref: "Player" }], // On garde les IDs
+  players: [{ type: Schema.Types.ObjectId, ref: "Player" }],
+  waitlistPlayers: [{ type: Schema.Types.ObjectId, ref: "Player" }], // Nouvelle liste d'attente
+  playerCap: { type: Number, default: 0 }, // Nombre maximum de joueurs (0 = illimité)
   teams: [teamSchema],
   finished: { type: Boolean, default: false },
   description: { type: String },
   checkIns: {
     type: Map,
-    of: Boolean, // Clé = ID du joueur, Valeur = true/false
+    of: Boolean,
     default: {},
   },
   registrationDates: {
     type: Map,
-    of: Date, // Clé = ID du joueur, Valeur = Date d'inscription
+    of: Date,
+    default: {},
+  },
+  waitlistRegistrationDates: {
+    // Dates d'inscription en liste d'attente
+    type: Map,
+    of: Date,
     default: {},
   },
   reminderSent: {

@@ -31,9 +31,6 @@ const checkUpcomingTournaments = async () => {
 
     // Récupérer TOUS les tournois pour vérification
     const allTournaments = await Tournament.find({}).populate("game");
-    logger.info(
-      `Total des tournois dans la base de données: ${allTournaments.length}`
-    );
 
     // Requête modifiée: trouver tous les tournois qui commencent dans les prochaines 24h
     const upcomingTournaments = await Tournament.find({

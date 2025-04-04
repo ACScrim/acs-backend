@@ -83,10 +83,6 @@ const fetchGuild = async () => {
  */
 const sendTournamentReminder = async (tournament) => {
   try {
-    logger.info(
-      `Préparation de la notification pour le tournoi "${tournament.name}"`
-    );
-
     const guild = await fetchGuild();
     if (!guild) {
       logger.error("Impossible de récupérer le serveur Discord");
@@ -369,10 +365,6 @@ function formatFrenchDate(date) {
  */
 const updateTournamentSignupMessage = async (tournament) => {
   try {
-    logger.info(
-      `Préparation du message d'inscription pour "${tournament.name}"`
-    );
-
     const guild = await fetchGuild();
     if (!guild) {
       logger.error("Impossible de récupérer le serveur Discord");
@@ -416,7 +408,6 @@ const updateTournamentSignupMessage = async (tournament) => {
           )}:R>`,
           embeds: [embed],
         });
-        logger.info(`Message mis à jour pour ${tournament.name}`);
         return true;
       } catch (editError) {
         logger.error(`Échec de la modification:`, editError);

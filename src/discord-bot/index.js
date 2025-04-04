@@ -442,6 +442,79 @@ function findTargetChannel(channels, discordChannelName) {
 }
 
 /**
+ * Envoie un message direct à un joueur promu de la liste d'attente
+ * @param {Object} player - Le document Player MongoDB contenant le discordId
+ * @param {Object} tournament - L'objet tournoi auquel le joueur a été promu
+ * @returns {Promise<boolean>} Succès ou échec de l'envoi
+ */
+const notifyPlayerPromoted = async (player, tournament) => {
+  try {
+    // Vérifier que le joueur existe et a un Discord ID
+    if (!player || !player.discordId) {
+      logger.warn(
+        `Pas de Discord ID pour le joueur ${player?._id || "inconnu"}`
+      );
+      return false;
+    }
+
+    // Récupérer le serveur Discord
+    const guild = await fetchGuild();
+    if (!guild) {
+      logger.error("Impossible de récupérer le serveur Discord");
+      return false;
+    }
+
+    try {
+      // Chercher le membre dans le serveur par son Discord ID
+      const member = await guild.members.fetch(player.discordId);
+
+      if (!member) {
+        logger.warn(`Membre Discord non trouvé pour l'ID: ${player.discordId}`);
+        return false;
+      }
+
+      // Créer un embed pour le message privé
+      const embed = new EmbedBuilder()
+        .setColor("#10B981") // Vert émeraude
+        .setTitle(`✅ Vous êtes inscrit à ${tournament.name}!`)
+        .setDescription(
+          `Bonne nouvelle! Vous avez été déplacé de la liste d'attente à la liste des participants du tournoi.`
+        )
+        .addFields({
+          name: "Date du tournoi",
+          value: formatDateToFrenchTimezone(new Date(tournament.date)),
+          inline: true,
+        })
+        .setFooter({
+          text: "ACS",
+        })
+        .setTimestamp();
+
+      // Envoyer le message privé
+      await member.send({
+        content: `**Promotion au tournoi ${tournament.name}**\nVous avez été inscrit au tournoi suite à une place libérée ou une augmentation du nombre de places.`,
+        embeds: [embed],
+      });
+
+      logger.info(
+        `✅ Notification envoyée au joueur ${player.username} (Discord ID: ${player.discordId})`
+      );
+      return true;
+    } catch (memberError) {
+      logger.error(
+        `Erreur lors de la communication avec le membre Discord:`,
+        memberError
+      );
+
+      return false;
+    }
+  } catch (error) {
+    logger.error(`Erreur globale lors de la notification au joueur:`, error);
+    return false;
+  }
+};
+
+/**
  * Récupère et trie les noms des joueurs par date d'inscription
  * @param {Array} playerIds - IDs des joueurs
  * @param {Object} tournament - Document du tournoi contenant les dates d'inscription
@@ -527,4 +600,5 @@ module.exports = {
   deleteAndCreateChannels,
   sendTournamentReminder,
   updateTournamentSignupMessage,
+  notifyPlayerPromoted,
 };

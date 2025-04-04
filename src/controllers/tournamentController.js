@@ -1,7 +1,10 @@
 const Tournament = require("../models/Tournament");
 const Player = require("../models/Player");
 const User = require("../models/User");
-const { deleteAndCreateChannels } = require("../discord-bot/index.js");
+const {
+  deleteAndCreateChannels,
+  notifyPlayerPromoted,
+} = require("../discord-bot/index.js");
 const { updateSignupMessages } = require("../services/schedulerService");
 
 // Créer un tournoi
@@ -220,6 +223,29 @@ exports.updateTournament = async (req, res) => {
         tournament.registrationDates.delete(playerId);
       }
     });
+
+    if (movedFromWaitlist.length > 0) {
+      // Pour chaque joueur déplacé, envoyer une notification
+      for (const playerId of movedFromWaitlist) {
+        try {
+          const player = await Player.findById(playerId);
+          if (player) {
+            // Envoi asynchrone de la notification (ne bloque pas le traitement)
+            notifyPlayerPromoted(player, tournament).catch((err) =>
+              console.error(
+                `Erreur lors de la notification au joueur ${player.username}:`,
+                err
+              )
+            );
+          }
+        } catch (playerError) {
+          console.error(
+            `Erreur lors de la récupération du joueur ${playerId}:`,
+            playerError
+          );
+        }
+      }
+    }
 
     // Supprimer les dates d'inscription pour les joueurs totalement retirés
     totallyRemovedPlayers.forEach((playerId) => {
@@ -701,6 +727,24 @@ exports.unregisterPlayer = async (req, res) => {
             }
           }
           minTeam.players.push(promotedPlayerId);
+        }
+
+        try {
+          const promotedPlayer = await Player.findById(promotedPlayerId);
+          if (promotedPlayer) {
+            // Notification asynchrone (pas besoin d'attendre la fin)
+            notifyPlayerPromoted(promotedPlayer, tournament).catch((err) =>
+              console.error(
+                "Erreur lors de l'envoi de la notification Discord:",
+                err
+              )
+            );
+          }
+        } catch (playerError) {
+          console.error(
+            "Erreur lors de la récupération du joueur promu:",
+            playerError
+          );
         }
       }
     }

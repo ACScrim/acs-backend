@@ -47,7 +47,6 @@ const checkUpcomingTournaments = async () => {
     );
 
     if (upcomingTournaments.length === 0) {
-      logger.info("Aucun tournoi imminent n'a été trouvé.");
       return;
     }
 

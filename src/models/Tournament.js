@@ -39,6 +39,10 @@ const tournamentSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  reminderSentPlayers: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const Tournament =

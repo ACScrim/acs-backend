@@ -13,6 +13,7 @@ const discordbot = require("./discord-bot/index.js");
 const { startScheduler } = require("./services/schedulerService");
 const announcementRoutes = require("./routes/announcementRoutes");
 const gameProposalRoutes = require("./routes/gameProposalRoutes");
+const seasonRoutes = require("./routes/seasonRoutes");
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -123,7 +124,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/badges", badgeRoutes);
 app.use("/api/game-proposals", gameProposalRoutes);
 app.use("/api/announcements", announcementRoutes);
-
+app.use("/api/seasons", seasonRoutes);
 // Middleware pour les erreurs globales
 app.use((err, req, res, next) => {
   logger.error("Erreur non gérée:", err);

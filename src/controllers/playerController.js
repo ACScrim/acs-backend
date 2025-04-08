@@ -138,9 +138,9 @@ exports.updatePlayerUsername = async (req, res) => {
 exports.getPlayerRankings = async (req, res) => {
   try {
     const players = await Player.find();
-    const tournaments = await Tournament.find({ finished: true }).populate(
-      "teams.players"
-    );
+    const tournaments = await Tournament.find({ finished: true })
+      .populate("teams.players")
+      .populate("game");
 
     const playerRankings = players.map((player) => {
       // Filtrer les tournois auxquels le joueur a participé

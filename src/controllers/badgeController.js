@@ -4,8 +4,14 @@ const mongoose = require("mongoose");
 
 exports.createBadge = async (req, res) => {
   try {
-    const { title, imageUrl, description } = req.body;
-    const badge = new Badge({ title, imageUrl, description });
+    const { title, imageUrl, description, categoryType, categoryId } = req.body;
+    const badge = new Badge({
+      title,
+      imageUrl,
+      description,
+      categoryType,
+      categoryId: categoryType === "game" ? categoryId : undefined,
+    });
     await badge.save();
     res.status(201).json(badge);
   } catch (error) {
@@ -97,7 +103,7 @@ exports.removeBadgeFromPlayer = async (req, res) => {
 exports.updateBadge = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, imageUrl, description } = req.body;
+    const { title, imageUrl, description, categoryType, categoryId } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "ID de badge invalide" });
@@ -111,6 +117,8 @@ exports.updateBadge = async (req, res) => {
     badge.title = title;
     badge.imageUrl = imageUrl;
     badge.description = description;
+    badge.categoryType = categoryType;
+    badge.categoryId = categoryType === "game" ? categoryId : undefined;
 
     await badge.save();
 

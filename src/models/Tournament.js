@@ -35,6 +35,15 @@ const tournamentSchema = new mongoose.Schema({
     of: Date,
     default: {},
   },
+  // Dates de rappel personnalisées
+  discordReminderDate: {
+    type: Date,
+    default: null, // Sera calculée par défaut à partir de la date du tournoi
+  },
+  privateReminderDate: {
+    type: Date,
+    default: null, // Sera calculée par défaut à partir de la date du tournoi
+  },
   reminderSent: {
     type: Boolean,
     default: false,

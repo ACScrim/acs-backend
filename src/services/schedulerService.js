@@ -16,27 +16,52 @@ const logger = winston.createLogger({
   ],
 });
 
-// Vérifier les tournois à venir et envoyer des notifications
+// Vérifier les tournois à venir et envoyer des notifications sur le canal Discord
 const checkUpcomingTournaments = async () => {
   try {
     const now = new Date();
-    logger.info(`Heure actuelle: ${now.toISOString()}`);
+    logger.info(`[Canal Discord] Heure actuelle: ${now.toISOString()}`);
 
-    // Modifications: fenêtre temporelle de recherche pour les tournois qui commencent dans 24h ou moins
-    const endWindow = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24h à partir de maintenant
+    // Fenêtre de temps pour les notifications Discord (20 minutes avant/après l'heure prévue)
+    const startWindow = new Date(now.getTime() - 20 * 60 * 1000);
+    const endWindow = new Date(now.getTime() + 20 * 60 * 1000);
 
-    // Requête modifiée: trouver tous les tournois qui commencent dans les prochaines 24h
+    // Trouver les tournois dont la date de rappel Discord tombe dans cette fenêtre
+    // OU dont la date est passée mais qui n'ont pas encore reçu de notification
     const upcomingTournaments = await Tournament.find({
-      date: {
-        $gt: now, // Commence après maintenant
-        $lt: endWindow, // Mais dans moins de 24h
-      },
-      reminderSent: { $ne: true }, // Pas encore notifié
-      finished: { $ne: true }, // Pas encore terminé
+      $or: [
+        // Cas 1: Date de rappel personnalisée dans la fenêtre actuelle
+        {
+          discordReminderDate: {
+            $gt: startWindow,
+            $lt: endWindow,
+          },
+          reminderSent: { $ne: true },
+          finished: { $ne: true },
+          date: { $gt: now }, // Ajouter cette condition pour vérifier que la date du tournoi est dans le futur
+        },
+        // Cas 2: Date de rappel personnalisée passée mais rappel non envoyé
+        {
+          discordReminderDate: { $lt: now },
+          reminderSent: { $ne: true },
+          finished: { $ne: true },
+          date: { $gt: now }, // Ajouter cette condition pour vérifier que la date du tournoi est dans le futur
+        },
+        // Cas 3 (legacy): Pas de date personnalisée, mais démarre dans les prochaines 24h
+        {
+          discordReminderDate: null,
+          date: {
+            $gt: now,
+            $lt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+          },
+          reminderSent: { $ne: true },
+          finished: { $ne: true },
+        },
+      ],
     }).populate("game");
 
     logger.info(
-      `Tournois à venir dans les prochaines 24h: ${upcomingTournaments.length} tournoi(s) trouvé(s)`
+      `[Canal Discord] Tournois à notifier: ${upcomingTournaments.length} tournoi(s) trouvé(s)`
     );
 
     if (upcomingTournaments.length === 0) {
@@ -44,9 +69,21 @@ const checkUpcomingTournaments = async () => {
     }
 
     for (const tournament of upcomingTournaments) {
+      // Ajouter un log pour identifier si c'est un rappel en retard
+      const isLateReminder =
+        tournament.discordReminderDate &&
+        tournament.discordReminderDate < startWindow;
+
       logger.info(
-        `Envoi de notification dans le canal Discord pour le tournoi: ${tournament.name}`
+        `[Canal Discord] Envoi de notification pour le tournoi: ${
+          tournament.name
+        } ${
+          tournament.discordReminderDate
+            ? `(date personnalisée${isLateReminder ? ", RETARD" : ""})`
+            : "(règle par défaut)"
+        }`
       );
+
       const success = await sendTournamentReminder(tournament);
 
       if (success) {
@@ -55,46 +92,68 @@ const checkUpcomingTournaments = async () => {
         await tournament.save();
 
         logger.info(
-          `Notification envoyée pour le tournoi ${tournament.name} (ID: ${tournament._id})`
+          `[Canal Discord] Notification envoyée pour le tournoi ${tournament.name} (ID: ${tournament._id})`
         );
       } else {
         logger.error(
-          `Échec de l'envoi de la notification pour le tournoi ${tournament.name}`
+          `[Canal Discord] Échec de l'envoi de la notification pour le tournoi ${tournament.name}`
         );
       }
     }
-
-    // Reste de votre code pour envoyer des notifications...
   } catch (error) {
-    logger.error("Erreur lors de la vérification des tournois à venir:", error);
+    logger.error(
+      "[Canal Discord] Erreur lors de la vérification des tournois à venir:",
+      error
+    );
   }
 };
 
-// NOUVELLE FONCTION: Vérifier les tournois à venir et envoyer des rappels MP aux joueurs (6h avant)
+// Messages privés aux joueurs sans check-in
 const checkPlayerReminders = async () => {
   try {
     const now = new Date();
     logger.info(`[Rappels MP] Heure actuelle: ${now.toISOString()}`);
 
-    // Fenêtre temporelle de 6h pour les MP aux joueurs
-    const endWindow = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6h à partir de maintenant
+    // Fenêtre de temps pour les notifications privées (20 minutes avant/après l'heure prévue)
+    const startWindow = new Date(now.getTime() - 20 * 60 * 1000);
+    const endWindow = new Date(now.getTime() + 20 * 60 * 1000);
 
-    logger.info(
-      `[Rappels MP] Fenêtre de recherche: tournois commençant entre maintenant et ${endWindow.toISOString()}`
-    );
-
-    // Requête: trouver tous les tournois qui commencent dans les prochaines 6h
+    // Trouver les tournois dont la date de rappel privé tombe dans cette fenêtre
+    // OU dont la date est passée mais qui n'ont pas encore reçu de notification
     const upcomingTournaments = await Tournament.find({
-      date: {
-        $gt: now, // Commence après maintenant
-        $lt: endWindow, // Mais dans moins de 6h
-      },
-      reminderSentPlayers: { $ne: true }, // Rappels MP pas encore envoyés
-      finished: { $ne: true }, // Pas encore terminé
-    }).populate(["game", "players"]); // Assurez-vous de peupler les joueurs
+      $or: [
+        // Cas 1: Date de rappel personnalisée dans la fenêtre actuelle
+        {
+          privateReminderDate: {
+            $gt: startWindow,
+            $lt: endWindow,
+          },
+          reminderSentPlayers: { $ne: true },
+          finished: { $ne: true },
+          date: { $gt: now }, // Ajouter cette condition pour vérifier que la date du tournoi est dans le futur
+        },
+        // Cas 2: Date de rappel personnalisée passée mais rappel non envoyé
+        {
+          privateReminderDate: { $lt: now },
+          reminderSentPlayers: { $ne: true },
+          finished: { $ne: true },
+          date: { $gt: now }, // Ajouter cette condition pour vérifier que la date du tournoi est dans le futur
+        },
+        // Cas 3 (legacy): Pas de date personnalisée, mais démarre dans les prochaines 6h
+        {
+          privateReminderDate: null,
+          date: {
+            $gt: now,
+            $lt: new Date(now.getTime() + 6 * 60 * 60 * 1000),
+          },
+          reminderSentPlayers: { $ne: true },
+          finished: { $ne: true },
+        },
+      ],
+    }).populate(["game", "players"]);
 
     logger.info(
-      `[Rappels MP] Tournois à venir dans les prochaines 6h: ${upcomingTournaments.length} tournoi(s) trouvé(s)`
+      `[Rappels MP] Tournois à notifier: ${upcomingTournaments.length} tournoi(s) trouvé(s)`
     );
 
     if (upcomingTournaments.length === 0) {
@@ -102,8 +161,19 @@ const checkPlayerReminders = async () => {
     }
 
     for (const tournament of upcomingTournaments) {
+      // Ajouter un log pour identifier si c'est un rappel en retard
+      const isLateReminder =
+        tournament.privateReminderDate &&
+        tournament.privateReminderDate < startWindow;
+
       logger.info(
-        `[Rappels MP] Envoi de rappels MP pour les joueurs du tournoi: ${tournament.name}`
+        `[Rappels MP] Envoi de rappels MP pour les joueurs du tournoi: ${
+          tournament.name
+        } ${
+          tournament.privateReminderDate
+            ? `(date personnalisée${isLateReminder ? ", RETARD" : ""})`
+            : "(règle par défaut)"
+        }`
       );
 
       // Seuls les joueurs n'ayant pas fait leur check-in recevront des MPs
@@ -188,11 +258,9 @@ const startScheduler = () => {
   checkPlayerReminders(); // Vérifier les rappels MP aux joueurs
   updateSignupMessages();
 
-  // Puis vérifier toutes les heures
-  setInterval(checkUpcomingTournaments, 60 * 60 * 1000);
-
-  // Vérifier toutes les 30 minutes pour les rappels MP aux joueurs (6h avant)
-  setInterval(checkPlayerReminders, 30 * 60 * 1000);
+  const checkInterval = 20 * 60 * 1000; // 20 minutes en millisecondes
+  setInterval(checkUpcomingTournaments, checkInterval);
+  setInterval(checkPlayerReminders, checkInterval);
 
   // Mettre à jour les messages d'inscription toutes les heures
   setInterval(updateSignupMessages, 60 * 60 * 1000);

@@ -96,37 +96,36 @@ function formatDateToFrenchTimezone(date) {
 }
 
 /**
- * Trouve un canal dans la liste des canaux selon différents critères
+ * Trouve un canal Discord spécifique sans utiliser de fallbacks
  * @param {Collection} channels - Collection de canaux Discord
  * @param {string} targetChannelName - Nom du canal à rechercher
  * @param {number} channelType - Type de canal à rechercher (texte, vocal, etc.)
- * @param {Array} fallbackNames - Noms alternatifs à rechercher si le canal principal n'est pas trouvé
  * @returns {Channel|null} Le canal trouvé ou null
  */
 function findChannel(
   channels,
   targetChannelName,
-  channelType = ChannelType.GuildText,
-  fallbackNames = []
+  channelType = ChannelType.GuildText
 ) {
-  // Recherche par nom spécifié
-  if (targetChannelName) {
-    const channel = channels.find(
-      (c) =>
-        c.name.toLowerCase() === targetChannelName.toLowerCase() &&
-        c.type === channelType
-    );
-    if (channel) return channel;
+  // Vérifier si le nom du canal est défini
+  if (!targetChannelName) {
+    logger.error("Nom du canal non spécifié");
+    return null;
   }
 
-  // Recherche par noms alternatifs
-  for (const name of fallbackNames) {
-    const channel = channels.find(
-      (c) => c.name.toLowerCase().includes(name) && c.type === channelType
-    );
-    if (channel) return channel;
+  // Rechercher uniquement le canal spécifié, sans alternatives
+  const channel = channels.find(
+    (c) =>
+      c.name.toLowerCase() === targetChannelName.toLowerCase() &&
+      c.type === channelType
+  );
+
+  if (channel) {
+    logger.debug(`Canal trouvé: ${channel.name} (${channel.id})`);
+    return channel;
   }
 
+  logger.error(`Canal "${targetChannelName}" non trouvé`);
   return null;
 }
 
@@ -383,7 +382,7 @@ const sendCheckInReminders = async (tournament) => {
   const embed = createEmbed({
     title: `🎮 Hey! ${tournament.name} arrive bientôt!`,
     description:
-      "Salut! On voulait te rappeler que tu n'as pas encore fait ton check-in pour le tournoi. Sans ça, tu ne pourras pas participer... et ce serait vraiment dommage de rater ça!",
+      "Salut! On voulait te rappeler que tu n'as pas encore fait ton check-in pour le tournoi. Sans ça, tu ne pourras pas participer... et ce serait vraiment dommage de rater ça! Tu as jusque demain 12h pour check-in.",
     color: "#ec4899", // Rose cyberpunk
     fields: [
       {
@@ -471,18 +470,11 @@ const sendTournamentReminder = async (tournament) => {
     const channels = await guild.channels.fetch();
     logger.debug(`${channels.size} canaux récupérés sur le serveur`);
 
-    // Rechercher le canal approprié
-    const defaultChannelNames = [
-      "annonces",
-      "notifications",
-      "général",
-      "general",
-    ];
+    // Rechercher le canal spécifié sans alternatives
     const targetChannel = findChannel(
       channels,
       tournament.discordChannelName,
-      ChannelType.GuildText,
-      defaultChannelNames
+      ChannelType.GuildText
     );
 
     if (!targetChannel) {
@@ -607,17 +599,11 @@ const updateTournamentSignupMessage = async (tournament) => {
 
     // Récupération et sélection du canal cible
     const channels = await guild.channels.fetch();
-    const defaultChannelNames = [
-      "annonces",
-      "notifications",
-      "général",
-      "general",
-    ];
+
     const targetChannel = findChannel(
       channels,
       tournament.discordChannelName,
-      ChannelType.GuildText,
-      defaultChannelNames
+      ChannelType.GuildText
     );
 
     if (!targetChannel) {

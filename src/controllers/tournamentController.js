@@ -18,6 +18,8 @@ exports.createTournament = async (req, res) => {
       players,
       description,
       playerCap,
+      discordReminderDate,
+      privateReminderDate,
     } = req.body;
 
     // Extraire uniquement les IDs des joueurs
@@ -65,6 +67,8 @@ exports.createTournament = async (req, res) => {
       registrationDates,
       waitlistRegistrationDates,
       description,
+      discordReminderDate, // Ajouter ces deux champs
+      privateReminderDate,
     });
 
     await newTournament.save();
@@ -89,6 +93,8 @@ exports.updateTournament = async (req, res) => {
       teams,
       description,
       playerCap,
+      discordReminderDate, // Ajouter ces deux champs
+      privateReminderDate, // pour les dates de rappel personnalisées
     } = req.body;
 
     // Récupérer le tournoi existant pour la mise à jour
@@ -313,6 +319,14 @@ exports.updateTournament = async (req, res) => {
     tournament.discordChannelName = discordChannelName;
     tournament.description = description;
 
+    // Ajouter la mise à jour des dates de rappel
+    if (discordReminderDate) {
+      tournament.discordReminderDate = discordReminderDate;
+    }
+
+    if (privateReminderDate) {
+      tournament.privateReminderDate = privateReminderDate;
+    }
     // Sauvegarder directement le document modifié
     await tournament.save();
 

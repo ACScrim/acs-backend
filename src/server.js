@@ -86,19 +86,20 @@ app.use(
     secret: process.env.JWT_SECRET,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
       collectionName: "sessions",
-      ttl: 3 * 24 * 60 * 60, // 3 jours en secondes
+      ttl: 7 * 24 * 60 * 60, // Augmenté à 7 jours en secondes pour plus de sécurité
       autoRemove: "native", // Utilise l'index TTL natif de MongoDB (important!)
-      touchAfter: 24 * 60 * 60, // Optimisation: ne met à jour la session que toutes les 24h
+      touchAfter: 15 * 60, // Réduit à 15 minutes pour actualiser plus fréquemment la date d'expiration
       crypto: {
         // Pour sécuriser les données de session
         secret: process.env.JWT_SECRET,
       },
     }),
     cookie: {
-      maxAge: 3 * 24 * 60 * 60 * 1000, // 3 jours en millisecondes
+      maxAge: 7 * 24 * 60 * 60 * 1000, // Augmenté à 7 jours en millisecondes
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

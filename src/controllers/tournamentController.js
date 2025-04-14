@@ -941,3 +941,54 @@ exports.deleteAllTeams = async (req, res) => {
     });
   }
 };
+
+// Publier ou dépublier les équipes d'un tournoi
+exports.toggleTeamsPublication = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { published } = req.body;
+
+    // Valider les paramètres
+    if (published === undefined) {
+      return res.status(400).json({
+        message: "Le paramètre 'published' est requis (true ou false)",
+      });
+    }
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    // Si on veut publier mais qu'il n'y a pas d'équipes
+    if (published && (!tournament.teams || tournament.teams.length === 0)) {
+      return res.status(400).json({
+        message:
+          "Impossible de publier : aucune équipe n'a été créée pour ce tournoi",
+      });
+    }
+
+    // Mise à jour de l'état de publication
+    tournament.teamsPublished = published;
+    await tournament.save();
+
+    // Populer les données pour la réponse
+    const updatedTournament = await Tournament.findById(id).populate(
+      "game players waitlistPlayers teams.players"
+    );
+
+    res.status(200).json({
+      message: published
+        ? "Les équipes ont été publiées avec succès"
+        : "Les équipes ont été masquées",
+      tournament: updatedTournament,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la publication des équipes:", error);
+    res.status(500).json({
+      message:
+        "Erreur lors de la modification de l'état de publication des équipes",
+      error: error.message,
+    });
+  }
+};

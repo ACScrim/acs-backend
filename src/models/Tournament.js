@@ -14,9 +14,10 @@ const tournamentSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   discordChannelName: { type: String, required: true },
   players: [{ type: Schema.Types.ObjectId, ref: "Player" }],
-  waitlistPlayers: [{ type: Schema.Types.ObjectId, ref: "Player" }], // Nouvelle liste d'attente
+  waitlistPlayers: [{ type: Schema.Types.ObjectId, ref: "Player" }],
   playerCap: { type: Number, default: 0 }, // Nombre maximum de joueurs (0 = illimité)
   teams: [teamSchema],
+  teamsPublished: { type: Boolean, default: false },
   finished: { type: Boolean, default: false },
   description: { type: String },
   checkIns: {

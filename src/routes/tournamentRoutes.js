@@ -18,6 +18,7 @@ const {
   markTournamentAsFinished,
   unmarkTournamentAsFinished,
   deleteAllTeams,
+  toggleTeamsPublication, // Ajouter l'import de la nouvelle fonction
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const { create } = require("connect-mongo");
@@ -31,6 +32,9 @@ router
   .put(protect, admin, updateTournament)
   .delete(protect, admin, deleteTournament);
 router.put("/:id/teams", admin, updateTournamentTeams);
+
+// Nouvelle route pour la publication des équipes
+router.put("/:id/publish-teams", protect, admin, toggleTeamsPublication);
 
 router.route("/game/:gameId").get(protect, getTournamentsByGame);
 router.route("/:id/finish").put(protect, admin, finishTournament);

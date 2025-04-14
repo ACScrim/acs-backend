@@ -6,7 +6,17 @@ const {
   notifyPlayerPromoted,
 } = require("../discord-bot/index.js");
 const { updateSignupMessages } = require("../services/schedulerService");
+const winston = require("winston");
 
+// Utiliser le logger existant ou en créer un nouveau
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: "logs/players.log" }),
+  ],
+});
 // Créer un tournoi
 exports.createTournament = async (req, res) => {
   try {
@@ -597,6 +607,7 @@ exports.registerPlayer = async (req, res) => {
 
     // Déterminer si on doit ajouter le joueur à la liste principale ou à la liste d'attente
     const currentDate = new Date();
+    let isAddedToWaitlist = false; // Définir la variable ici
 
     if (
       tournament.playerCap > 0 &&
@@ -605,6 +616,7 @@ exports.registerPlayer = async (req, res) => {
       // Le cap est atteint, ajouter en liste d'attente
       tournament.waitlistPlayers.push(player._id);
       tournament.waitlistRegistrationDates.set(player._id, currentDate);
+      isAddedToWaitlist = true; // Mettre à jour la variable
     } else {
       // Ajouter à la liste principale
       tournament.players.push(player._id);
@@ -625,6 +637,16 @@ exports.registerPlayer = async (req, res) => {
         minTeam.players.push(player._id);
       }
     }
+
+    // Créer un log détaillé avec Winston pour l'inscription
+    logger.info(`Inscription d'un joueur: {
+      "date": "${currentDate.toISOString()}",
+      "tournamentName": "${tournament.name || "Non défini"}",
+      "playerName": "${player.username || "Non défini"}",
+      "isWaitlist": ${isAddedToWaitlist},
+      "currentPlayerCount": ${tournament.players.length},
+      "waitlistCount": ${tournament.waitlistPlayers?.length || 0}
+    }`);
 
     await tournament.save();
 
@@ -671,6 +693,16 @@ exports.unregisterPlayer = async (req, res) => {
     if (!isInMainList && !isInWaitlist) {
       return res.status(404).json({ message: "Joueur non inscrit au tournoi" });
     }
+
+    // Date de désinscription pour les logs
+    const unregisterDate = new Date();
+
+    // Créer un log détaillé avec Winston
+    logger.info(`Désinscription d'un joueur: {
+      "date": "${unregisterDate.toISOString()}",
+      "tournamentName": "${tournament.name || "Non défini"}",
+      "playerName": "${player.username || "Non défini"}",
+    }`);
 
     // Si le joueur est dans la liste principale
     if (isInMainList) {

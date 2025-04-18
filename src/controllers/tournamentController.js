@@ -4,6 +4,10 @@ const User = require("../models/User");
 const {
   deleteAndCreateChannels,
   notifyPlayerPromoted,
+  addTournamentRole,
+  removeTournamentRole,
+  syncTournamentRoles,
+  deleteTournamentRole,
 } = require("../discord-bot/index.js");
 const { updateSignupMessages } = require("../services/schedulerService");
 const winston = require("winston");
@@ -81,6 +85,14 @@ exports.createTournament = async (req, res) => {
       privateReminderDate,
     });
 
+    // Synchroniser les rôles pour les joueurs initiaux
+    if (playersToAdd.length > 0) {
+      const populatedTournament = await Tournament.findById(
+        newTournament._id
+      ).populate("game players");
+      await syncTournamentRoles(populatedTournament);
+    }
+
     await newTournament.save();
     await updateSignupMessages();
     res.status(201).json(newTournament);
@@ -130,6 +142,24 @@ exports.updateTournament = async (req, res) => {
     const totallyRemovedPlayers = allCurrentPlayers.filter(
       (id) => !newPlayerIds.includes(id)
     );
+
+    const totallyRemovedPlayerIds = allCurrentPlayers.filter(
+      (id) => !newPlayerIds.includes(id)
+    );
+    // Récupérer les objets joueurs complets pour ceux qui ont été retirés
+    const removedPlayers = [];
+    for (const playerId of totallyRemovedPlayerIds) {
+      try {
+        const player = await Player.findById(playerId);
+        if (player) {
+          removedPlayers.push(player);
+        }
+      } catch (error) {
+        logger.warn(
+          `Erreur lors de la récupération du joueur ${playerId}: ${error}`
+        );
+      }
+    }
 
     // Mise à jour du playerCap
     const oldCap = tournament.playerCap || 0;
@@ -345,6 +375,8 @@ exports.updateTournament = async (req, res) => {
       "game players waitlistPlayers teams.players"
     );
 
+    await syncTournamentRoles(updatedTournament, removedPlayers);
+
     res.status(200).json(updatedTournament);
   } catch (error) {
     console.error("Erreur lors de la mise à jour du tournoi:", error);
@@ -457,6 +489,17 @@ exports.markTournamentAsFinished = async (req, res) => {
 
     tournament.finished = true;
     await tournament.save();
+
+    const populatedTournament = await Tournament.findById(id).populate("game");
+    try {
+      await deleteTournamentRole(populatedTournament);
+      logger.info(`Rôle Discord supprimé pour le tournoi ${tournament.name}`);
+    } catch (roleError) {
+      logger.error(
+        `Erreur lors de la suppression du rôle pour le tournoi ${tournament.name}:`,
+        roleError
+      );
+    }
 
     res.status(200).json(tournament);
   } catch (error) {
@@ -655,6 +698,19 @@ exports.registerPlayer = async (req, res) => {
       "game players waitlistPlayers teams.players"
     );
 
+    // Ajouter le rôle Discord au joueur s'il n'est pas en liste d'attente
+    if (!isAddedToWaitlist) {
+      try {
+        await addTournamentRole(player, updatedTournament);
+        logger.info(`Rôle Discord ajouté au joueur ${player.username}`);
+      } catch (error) {
+        logger.error(
+          `Erreur lors de l'ajout du rôle au joueur ${player.username}:`,
+          error
+        );
+      }
+    }
+
     res.status(200).json(updatedTournament);
   } catch (error) {
     res
@@ -704,6 +760,9 @@ exports.unregisterPlayer = async (req, res) => {
       "playerName": "${player.username || "Non défini"}",
     }`);
 
+    // Variable pour garder la trace des joueurs promus
+    let promotedPlayerId = null;
+
     // Si le joueur est dans la liste principale
     if (isInMainList) {
       // Supprimer le joueur de la liste principale
@@ -739,7 +798,7 @@ exports.unregisterPlayer = async (req, res) => {
           return dateA - dateB;
         });
 
-        const promotedPlayerId = sortedWaitlist[0];
+        promotedPlayerId = sortedWaitlist[0];
 
         // Déplacer le joueur de la liste d'attente à la liste principale
         tournament.waitlistPlayers = tournament.waitlistPlayers.filter(
@@ -774,24 +833,6 @@ exports.unregisterPlayer = async (req, res) => {
           }
           minTeam.players.push(promotedPlayerId);
         }
-
-        try {
-          const promotedPlayer = await Player.findById(promotedPlayerId);
-          if (promotedPlayer) {
-            // Notification asynchrone (pas besoin d'attendre la fin)
-            notifyPlayerPromoted(promotedPlayer, tournament).catch((err) =>
-              console.error(
-                "Erreur lors de l'envoi de la notification Discord:",
-                err
-              )
-            );
-          }
-        } catch (playerError) {
-          console.error(
-            "Erreur lors de la récupération du joueur promu:",
-            playerError
-          );
-        }
       }
     }
     // Si le joueur est dans la liste d'attente
@@ -805,8 +846,40 @@ exports.unregisterPlayer = async (req, res) => {
 
     // Populer les données pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers waitlistRegistrationDates teams.players"
+      "game players waitlistPlayers teams.players"
     );
+
+    // Retirer le rôle Discord au joueur s'il était dans la liste principale
+    if (isInMainList) {
+      try {
+        await removeTournamentRole(player, updatedTournament);
+        logger.info(`Rôle Discord retiré au joueur ${player.username}`);
+      } catch (error) {
+        logger.error(
+          `Erreur lors du retrait du rôle au joueur ${player.username}:`,
+          error
+        );
+      }
+    }
+
+    // Si un joueur a été promu, lui donner le rôle
+    if (promotedPlayerId) {
+      try {
+        const promotedPlayer = await Player.findById(promotedPlayerId);
+        if (promotedPlayer) {
+          // Notification de promotion
+          await notifyPlayerPromoted(promotedPlayer, updatedTournament);
+
+          // Ajout du rôle Discord
+          await addTournamentRole(promotedPlayer, updatedTournament);
+          logger.info(
+            `Rôle Discord ajouté au joueur promu ${promotedPlayer.username}`
+          );
+        }
+      } catch (error) {
+        logger.error(`Erreur lors de la gestion du joueur promu:`, error);
+      }
+    }
 
     res.status(200).json(updatedTournament);
   } catch (error) {

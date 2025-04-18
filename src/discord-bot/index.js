@@ -680,6 +680,331 @@ const updateTournamentSignupMessage = async (tournament) => {
   }
 };
 
+// ===========================================
+// SECTION: GESTION DES RÔLES
+// ===========================================
+
+/**
+ * Format le nom d'un rôle pour un tournoi en fonction du jeu
+ * @param {Object} game - L'objet jeu du tournoi
+ * @returns {string} Le nom formaté du rôle
+ */
+function formatRoleName(game) {
+  if (!game || !game.name) return null;
+  return `Tournoi-${game.name.replace(/\s+/g, "-")}`;
+}
+
+/**
+ * Récupère ou crée un rôle pour un tournoi
+ * @param {Object} tournament - L'objet tournoi
+ * @returns {Promise<Role|null>} Le rôle récupéré ou créé, ou null en cas d'erreur
+ */
+async function getOrCreateTournamentRole(tournament) {
+  try {
+    if (!tournament.game || !tournament.game.name) {
+      logger.warn(`Pas de jeu défini pour le tournoi ${tournament._id}`);
+      return null;
+    }
+
+    const guild = await fetchGuild();
+    if (!guild) return null;
+
+    // Forcer le rafraîchissement du cache des rôles
+    await guild.roles.fetch(null, { force: true });
+
+    const roleName = formatRoleName(tournament.game);
+
+    // Chercher si le rôle existe déjà
+    let role = guild.roles.cache.find((r) => r.name === roleName);
+
+    // Créer le rôle s'il n'existe pas
+    if (!role) {
+      logger.info(`Création du rôle "${roleName}" pour le tournoi`);
+      role = await guild.roles.create({
+        name: roleName,
+        color: "#ec4899", // Rose cyberpunk
+        reason: `Rôle pour le tournoi ${tournament.name}`,
+      });
+
+      // Petit délai pour être sûr que le rôle est bien créé
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Rafraîchir à nouveau le cache pour être sûr d'avoir le rôle
+      await guild.roles.fetch(null, { force: true });
+      role = guild.roles.cache.find((r) => r.name === roleName);
+    }
+
+    return role;
+  } catch (error) {
+    logger.error(`Erreur lors de la création/récupération du rôle:`, error);
+    return null;
+  }
+}
+
+/**
+ * Ajoute le rôle de tournoi à un joueur
+ * @param {Object} player - Le joueur auquel ajouter le rôle
+ * @param {Object} tournament - L'objet tournoi
+ * @returns {Promise<boolean>} Succès ou échec de l'opération
+ */
+async function addTournamentRole(player, tournament) {
+  try {
+    if (!player || !player.discordId) {
+      logger.warn(
+        `Pas de Discord ID pour le joueur ${player?._id || "inconnu"}`
+      );
+      return false;
+    }
+
+    const guild = await fetchGuild();
+    if (!guild) return false;
+
+    // Forcer la récupération à jour du rôle
+    await guild.roles.fetch();
+
+    const role = await getOrCreateTournamentRole(tournament);
+    if (!role) return false;
+
+    // Récupérer le membre Discord avec une requête fraîche
+    try {
+      const member = await guild.members.fetch({
+        user: player.discordId,
+        force: true,
+      });
+      if (!member) {
+        logger.warn(`Membre Discord non trouvé pour l'ID: ${player.discordId}`);
+        return false;
+      }
+
+      // Forcer la récupération des rôles du membre
+      await member.fetch(true);
+
+      // Ajouter le rôle s'il ne l'a pas déjà
+      if (!member.roles.cache.has(role.id)) {
+        await member.roles.add(role);
+        logger.debug(`Rôle ${role.name} ajouté à ${player.username}`);
+      } else {
+        logger.debug(`${player.username} a déjà le rôle ${role.name}`);
+      }
+
+      return true;
+    } catch (memberError) {
+      logger.error(
+        `Erreur lors de la récupération du membre Discord ${player.discordId}:`,
+        memberError
+      );
+      return false;
+    }
+  } catch (error) {
+    logger.error(
+      `Erreur lors de l'ajout du rôle au joueur ${
+        player?.username || "inconnu"
+      }:`,
+      error
+    );
+    return false;
+  }
+}
+
+/**
+ * Retire le rôle de tournoi à un joueur
+ * @param {Object} player - Le joueur auquel retirer le rôle
+ * @param {Object} tournament - L'objet tournoi
+ * @returns {Promise<boolean>} Succès ou échec de l'opération
+ */
+async function removeTournamentRole(player, tournament) {
+  try {
+    if (!player || !player.discordId) {
+      logger.warn(
+        `Pas de Discord ID pour le joueur ${player?._id || "inconnu"}`
+      );
+      return false;
+    }
+
+    const guild = await fetchGuild();
+    if (!guild) return false;
+
+    // Forcer la récupération à jour des rôles
+    await guild.roles.fetch();
+
+    const roleName = formatRoleName(tournament.game);
+    const role = guild.roles.cache.find((r) => r.name === roleName);
+
+    if (!role) {
+      logger.warn(`Rôle ${roleName} non trouvé sur le serveur`);
+      return false;
+    }
+
+    try {
+      // Récupérer le membre avec ses données à jour
+      const member = await guild.members.fetch({
+        user: player.discordId,
+        force: true,
+      });
+      if (!member) {
+        logger.warn(`Membre Discord non trouvé pour l'ID: ${player.discordId}`);
+        return false;
+      }
+
+      // Forcer la récupération des rôles du membre
+      await member.fetch(true);
+
+      // Retirer le rôle s'il l'a
+      if (member.roles.cache.has(role.id)) {
+        await member.roles.remove(role);
+        logger.debug(`Rôle ${role.name} retiré à ${player.username}`);
+      } else {
+        logger.debug(
+          `${player.username} n'a pas le rôle ${role.name} à retirer`
+        );
+      }
+
+      return true;
+    } catch (memberError) {
+      logger.error(
+        `Erreur lors de la récupération du membre Discord ${player.discordId}:`,
+        memberError
+      );
+      return false;
+    }
+  } catch (error) {
+    logger.error(
+      `Erreur lors du retrait du rôle au joueur ${
+        player?.username || "inconnu"
+      }:`,
+      error
+    );
+    return false;
+  }
+}
+
+/**
+ * Vérifie et met à jour les rôles pour tous les joueurs d'un tournoi
+ * @param {Object} tournament - L'objet tournoi populé avec les joueurs
+ * @param {Array} removedPlayers - Liste des joueurs retirés qui doivent perdre leur rôle (optionnel)
+ * @returns {Promise<{success: number, failed: number, removed: number}>} Statistiques de l'opération
+ */
+async function syncTournamentRoles(tournament, removedPlayers = []) {
+  let success = 0;
+  let failed = 0;
+  let removed = 0;
+
+  // S'il n'y a pas de joueurs et pas de joueurs retirés, rien à faire
+  if (!tournament?.players?.length && !removedPlayers.length) {
+    logger.debug(
+      `Pas de joueurs à synchroniser pour le tournoi ${tournament?._id}`
+    );
+    return { success, failed, removed };
+  }
+
+  logger.info(`Synchronisation des rôles pour le tournoi "${tournament.name}"`);
+
+  const guild = await fetchGuild();
+  if (!guild)
+    return { success: 0, failed: tournament.players?.length || 0, removed: 0 };
+
+  // Forcer la récupération des rôles
+  await guild.roles.fetch(null, { force: true });
+
+  const role = await getOrCreateTournamentRole(tournament);
+  if (!role) {
+    logger.error(
+      `Impossible de récupérer ou créer le rôle pour le tournoi ${tournament.name}`
+    );
+    return { success: 0, failed: tournament.players?.length || 0, removed: 0 };
+  }
+
+  // 1. Ajouter le rôle aux joueurs actuels
+  if (tournament.players && tournament.players.length > 0) {
+    logger.info(`Ajout du rôle à ${tournament.players.length} joueurs actifs`);
+    for (const playerId of tournament.players) {
+      try {
+        const player = await Player.findById(playerId);
+        if (!player || !player.discordId) {
+          failed++;
+          continue;
+        }
+
+        const result = await addTournamentRole(player, tournament);
+        result ? success++ : failed++;
+      } catch (error) {
+        logger.error(
+          `Erreur lors de la synchronisation du rôle pour le joueur ${playerId}:`,
+          error
+        );
+        failed++;
+      }
+    }
+  }
+
+  // 2. Retirer le rôle aux joueurs supprimés
+  if (removedPlayers && removedPlayers.length > 0) {
+    logger.info(`Retrait du rôle à ${removedPlayers.length} joueurs supprimés`);
+    for (const player of removedPlayers) {
+      try {
+        if (!player || !player.discordId) continue;
+
+        const result = await removeTournamentRole(player, tournament);
+        if (result) {
+          removed++;
+          logger.debug(
+            `Rôle retiré au joueur ${player.username} (supprimé du tournoi)`
+          );
+        }
+      } catch (error) {
+        logger.error(
+          `Erreur lors du retrait du rôle au joueur supprimé ${player._id}:`,
+          error
+        );
+      }
+    }
+  }
+
+  logger.info(
+    `Synchronisation des rôles terminée: ${success} ajoutés, ${removed} retirés, ${failed} échoués`
+  );
+  return { success, failed, removed };
+}
+
+/**
+ * Supprime le rôle d'un tournoi
+ * @param {Object} tournament - L'objet tournoi
+ * @returns {Promise<boolean>} Succès ou échec de la suppression
+ */
+async function deleteTournamentRole(tournament) {
+  try {
+    if (!tournament.game || !tournament.game.name) {
+      logger.warn(`Pas de jeu défini pour le tournoi ${tournament._id}`);
+      return false;
+    }
+
+    const guild = await fetchGuild();
+    if (!guild) return false;
+
+    const roleName = formatRoleName(tournament.game);
+    const role = guild.roles.cache.find((r) => r.name === roleName);
+
+    if (!role) {
+      logger.warn(
+        `Rôle ${roleName} non trouvé lors de la tentative de suppression`
+      );
+      return true; // On considère que c'est un succès si le rôle n'existe pas
+    }
+
+    await role.delete(`Tournoi ${tournament.name} terminé`);
+    logger.info(
+      `Rôle ${roleName} supprimé suite à la fin du tournoi ${tournament.name}`
+    );
+    return true;
+  } catch (error) {
+    logger.error(
+      `Erreur lors de la suppression du rôle pour le tournoi ${tournament.name}:`,
+      error
+    );
+    return false;
+  }
+}
+
 // Connexion au bot Discord
 client
   .login(token)
@@ -695,4 +1020,8 @@ module.exports = {
   updateTournamentSignupMessage,
   notifyPlayerPromoted,
   sendCheckInReminders,
+  addTournamentRole,
+  removeTournamentRole,
+  syncTournamentRoles,
+  deleteTournamentRole,
 };

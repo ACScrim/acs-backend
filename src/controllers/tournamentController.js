@@ -375,8 +375,12 @@ exports.updateTournament = async (req, res) => {
       "game players waitlistPlayers teams.players"
     );
 
-    await syncTournamentRoles(updatedTournament, removedPlayers);
-
+    // Synchroniser les rôles de façon asynchrone
+    process.nextTick(() => {
+      syncTournamentRoles(updatedTournament, removedPlayers).catch((error) => {
+        logger.error(`Erreur lors de la synchronisation des rôles:`, error);
+      });
+    });
     res.status(200).json(updatedTournament);
   } catch (error) {
     console.error("Erreur lors de la mise à jour du tournoi:", error);
@@ -698,17 +702,17 @@ exports.registerPlayer = async (req, res) => {
       "game players waitlistPlayers teams.players"
     );
 
-    // Ajouter le rôle Discord au joueur s'il n'est pas en liste d'attente
+    // Ajouter le rôle Discord au joueur s'il n'est pas en liste d'attente, mais de façon asynchrone
     if (!isAddedToWaitlist) {
-      try {
-        await addTournamentRole(player, updatedTournament);
-        logger.info(`Rôle Discord ajouté au joueur ${player.username}`);
-      } catch (error) {
-        logger.error(
-          `Erreur lors de l'ajout du rôle au joueur ${player.username}:`,
-          error
-        );
-      }
+      // Ne pas attendre que cette opération soit terminée pour répondre
+      process.nextTick(() => {
+        addTournamentRole(player, updatedTournament).catch((error) => {
+          logger.error(
+            `Erreur lors de l'ajout du rôle au joueur ${player.username}:`,
+            error
+          );
+        });
+      });
     }
 
     res.status(200).json(updatedTournament);
@@ -849,36 +853,31 @@ exports.unregisterPlayer = async (req, res) => {
       "game players waitlistPlayers teams.players"
     );
 
-    // Retirer le rôle Discord au joueur s'il était dans la liste principale
+    // Retirer le rôle de façon asynchrone
     if (isInMainList) {
-      try {
-        await removeTournamentRole(player, updatedTournament);
-        logger.info(`Rôle Discord retiré au joueur ${player.username}`);
-      } catch (error) {
-        logger.error(
-          `Erreur lors du retrait du rôle au joueur ${player.username}:`,
-          error
-        );
-      }
+      process.nextTick(() => {
+        removeTournamentRole(player, updatedTournament).catch((error) => {
+          logger.error(
+            `Erreur lors du retrait du rôle au joueur ${player.username}:`,
+            error
+          );
+        });
+      });
     }
 
-    // Si un joueur a été promu, lui donner le rôle
+    // Si un joueur a été promu, lui donner le rôle de façon asynchrone
     if (promotedPlayerId) {
-      try {
-        const promotedPlayer = await Player.findById(promotedPlayerId);
-        if (promotedPlayer) {
-          // Notification de promotion
-          await notifyPlayerPromoted(promotedPlayer, updatedTournament);
-
-          // Ajout du rôle Discord
-          await addTournamentRole(promotedPlayer, updatedTournament);
-          logger.info(
-            `Rôle Discord ajouté au joueur promu ${promotedPlayer.username}`
-          );
+      process.nextTick(async () => {
+        try {
+          const promotedPlayer = await Player.findById(promotedPlayerId);
+          if (promotedPlayer) {
+            await notifyPlayerPromoted(promotedPlayer, updatedTournament);
+            await addTournamentRole(promotedPlayer, updatedTournament);
+          }
+        } catch (error) {
+          logger.error(`Erreur lors de la gestion du joueur promu:`, error);
         }
-      } catch (error) {
-        logger.error(`Erreur lors de la gestion du joueur promu:`, error);
-      }
+      });
     }
 
     res.status(200).json(updatedTournament);

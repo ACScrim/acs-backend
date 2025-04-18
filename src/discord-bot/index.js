@@ -486,6 +486,11 @@ const sendTournamentReminder = async (tournament) => {
       `Canal sélectionné pour l'envoi: ${targetChannel.name} (${targetChannel.id})`
     );
 
+    // Récupérer le rôle spécifique au tournoi
+    await guild.roles.fetch(null, { force: true });
+    const roleName = formatRoleName(tournament.game);
+    const role = guild.roles.cache.find((r) => r.name === roleName);
+
     // Créer un embed pour le message de rappel
     const embed = createEmbed({
       title: `⚠️ RAPPEL: ${tournament.name} commence bientôt!`,
@@ -511,10 +516,15 @@ const sendTournamentReminder = async (tournament) => {
       footerText: "Pour faire votre check-in, connectez-vous sur acscrim.fr",
     });
 
+    // Message de mention - utiliser le rôle spécifique si disponible, sinon @here
+    const mentionText = role
+      ? `<@&${role.id}> **${tournament.name}** commence bientôt !`
+      : `@here **${tournament.name}** commence bientôt !`;
+
     // Envoyer le message dans le canal
     try {
       await targetChannel.send({
-        content: `@everyone **${tournament.name}** commence bientôt ! N'oubliez pas de faire votre check-in pour ce tournoi !\nRendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
+        content: `${mentionText} N'oubliez pas de faire votre check-in pour ce tournoi !\nRendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
         embeds: [embed],
       });
 

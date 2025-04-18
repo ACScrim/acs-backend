@@ -11,7 +11,6 @@ const rateLimit = require("express-rate-limit");
 const winston = require("winston");
 const discordbot = require("./discord-bot/index.js");
 const { startScheduler } = require("./services/schedulerService");
-const announcementRoutes = require("./routes/announcementRoutes");
 const gameProposalRoutes = require("./routes/gameProposalRoutes");
 const seasonRoutes = require("./routes/seasonRoutes");
 
@@ -124,7 +123,6 @@ app.use("/api/games", gameRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/badges", badgeRoutes);
 app.use("/api/game-proposals", gameProposalRoutes);
-app.use("/api/announcements", announcementRoutes);
 app.use("/api/seasons", seasonRoutes);
 // Middleware pour les erreurs globales
 app.use((err, req, res, next) => {

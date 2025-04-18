@@ -882,26 +882,32 @@ async function removeTournamentRole(player, tournament) {
  * Vérifie et met à jour les rôles pour tous les joueurs d'un tournoi
  * @param {Object} tournament - L'objet tournoi populé avec les joueurs
  * @param {Array} removedPlayers - Liste des joueurs retirés qui doivent perdre leur rôle (optionnel)
- * @returns {Promise<{success: number, failed: number, removed: number}>} Statistiques de l'opération
+ * @returns {Promise<{success: number, failed: number, removed: number, skipped: number}>} Statistiques de l'opération
  */
 async function syncTournamentRoles(tournament, removedPlayers = []) {
   let success = 0;
   let failed = 0;
   let removed = 0;
+  let skipped = 0;
 
   // S'il n'y a pas de joueurs et pas de joueurs retirés, rien à faire
   if (!tournament?.players?.length && !removedPlayers.length) {
     logger.debug(
       `Pas de joueurs à synchroniser pour le tournoi ${tournament?._id}`
     );
-    return { success, failed, removed };
+    return { success, failed, removed, skipped };
   }
 
   logger.info(`Synchronisation des rôles pour le tournoi "${tournament.name}"`);
 
   const guild = await fetchGuild();
   if (!guild)
-    return { success: 0, failed: tournament.players?.length || 0, removed: 0 };
+    return {
+      success: 0,
+      failed: 0,
+      removed: 0,
+      skipped: tournament.players?.length || 0,
+    };
 
   // Forcer la récupération des rôles
   await guild.roles.fetch(null, { force: true });
@@ -911,12 +917,23 @@ async function syncTournamentRoles(tournament, removedPlayers = []) {
     logger.error(
       `Impossible de récupérer ou créer le rôle pour le tournoi ${tournament.name}`
     );
-    return { success: 0, failed: tournament.players?.length || 0, removed: 0 };
+    return {
+      success: 0,
+      failed: 0,
+      removed: 0,
+      skipped: tournament.players?.length || 0,
+    };
   }
 
   // 1. Ajouter le rôle aux joueurs actuels
   if (tournament.players && tournament.players.length > 0) {
-    logger.info(`Ajout du rôle à ${tournament.players.length} joueurs actifs`);
+    logger.info(
+      `Vérification des rôles pour ${tournament.players.length} joueurs actifs`
+    );
+
+    // Récupérer les membres du serveur qui ont déjà ce rôle
+    const membersWithRole = role.members;
+
     for (const playerId of tournament.players) {
       try {
         const player = await Player.findById(playerId);
@@ -925,6 +942,21 @@ async function syncTournamentRoles(tournament, removedPlayers = []) {
           continue;
         }
 
+        // Vérifier si ce membre a déjà le rôle
+        const hasRole = membersWithRole.some(
+          (member) => member.id === player.discordId
+        );
+
+        if (hasRole) {
+          // Le joueur a déjà le rôle, on le saute
+          skipped++;
+          logger.debug(
+            `${player.username} a déjà le rôle ${role.name}, ignoré`
+          );
+          continue;
+        }
+
+        // Le joueur n'a pas le rôle, on l'ajoute
         const result = await addTournamentRole(player, tournament);
         result ? success++ : failed++;
       } catch (error) {
@@ -961,9 +993,9 @@ async function syncTournamentRoles(tournament, removedPlayers = []) {
   }
 
   logger.info(
-    `Synchronisation des rôles terminée: ${success} ajoutés, ${removed} retirés, ${failed} échoués`
+    `Synchronisation des rôles terminée: ${success} ajoutés, ${removed} retirés, ${failed} échoués, ${skipped} ignorés (déjà corrects)`
   );
-  return { success, failed, removed };
+  return { success, failed, removed, skipped };
 }
 
 /**

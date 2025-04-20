@@ -424,7 +424,7 @@ exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers playerCap teams.players description"
+      "game players waitlistPlayers discordReminderDate privateReminderDate playerCap teams.players description"
     );
     res.status(200).json(tournament);
   } catch (error) {

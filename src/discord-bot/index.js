@@ -627,11 +627,53 @@ const updateTournamentSignupMessage = async (tournament) => {
       tournament
     );
 
-    // Rechercher un message existant pour ce tournoi
+    // Rechercher un message existant pour ce tournoi de manière plus flexible
     const messages = await targetChannel.messages.fetch({ limit: 100 });
-    const existingMessage = messages.find(
-      (msg) => msg.embeds?.[0]?.title === `📝 Inscriptions: ${tournament.name}`
+
+    // Log pour déboguer
+    logger.debug(
+      `[Inscription] Recherche de message pour ${tournament.name}. ${messages.size} messages récupérés`
     );
+
+    // Recherche plus tolérante : on cherche le nom du tournoi dans le contenu ou les embeds
+    let existingMessage = messages.find((msg) => {
+      // Vérifier dans le contenu du message
+      if (msg.content && msg.content.includes(tournament.name)) {
+        return true;
+      }
+
+      // Vérifier dans les embeds s'ils existent
+      if (msg.embeds && msg.embeds.length > 0) {
+        return msg.embeds.some((embed) => {
+          // Vérifier le titre de l'embed
+          if (embed.title && embed.title.includes(tournament.name)) {
+            return true;
+          }
+
+          // Vérifier la description de l'embed
+          if (
+            embed.description &&
+            embed.description.includes(tournament.name)
+          ) {
+            return true;
+          }
+
+          // On peut aussi vérifier les champs si nécessaire
+          if (embed.fields && embed.fields.length > 0) {
+            return embed.fields.some(
+              (field) =>
+                field.value &&
+                (field.value.includes(tournament.game?.name) ||
+                  field.value.includes("Participants"))
+            );
+          }
+
+          return false;
+        });
+      }
+
+      return false;
+    });
 
     // Créer l'embed pour les inscriptions
     const embed = createEmbed({
@@ -661,6 +703,10 @@ const updateTournamentSignupMessage = async (tournament) => {
     // Mettre à jour le message existant ou en créer un nouveau
     if (existingMessage) {
       try {
+        logger.info(
+          `[Inscription] Message existant trouvé pour ${tournament.name}, ID: ${existingMessage.id}`
+        );
+
         await existingMessage.edit({
           content: `**${
             tournament.name
@@ -669,11 +715,20 @@ const updateTournamentSignupMessage = async (tournament) => {
           )}:R>`,
           embeds: [embed],
         });
-        logger.info(`Message existant mis à jour pour ${tournament.name}`);
+        logger.info(
+          `[Inscription] Message existant mis à jour pour ${tournament.name}`
+        );
         return true;
       } catch (editError) {
-        logger.error(`Échec de la modification du message:`, editError);
+        logger.error(
+          `[Inscription] Échec de la modification du message:`,
+          editError
+        );
       }
+    } else {
+      logger.info(
+        `[Inscription] Aucun message existant trouvé pour ${tournament.name}, création d'un nouveau`
+      );
     }
 
     // Créer un nouveau message si échec de la modification ou message inexistant
@@ -682,10 +737,13 @@ const updateTournamentSignupMessage = async (tournament) => {
       embeds: [embed],
     });
 
-    logger.info(`Nouveau message créé pour ${tournament.name}`);
+    logger.info(`[Inscription] Nouveau message créé pour ${tournament.name}`);
     return true;
   } catch (error) {
-    logger.error(`Erreur lors de la mise à jour du message:`, error);
+    logger.error(
+      `[Inscription] Erreur lors de la mise à jour du message:`,
+      error
+    );
     return false;
   }
 };

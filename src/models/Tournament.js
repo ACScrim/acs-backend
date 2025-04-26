@@ -53,6 +53,10 @@ const tournamentSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  messageId: {
+    type: String,
+    default: null,
+  },
 });
 
 const Tournament =

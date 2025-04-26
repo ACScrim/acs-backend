@@ -632,48 +632,13 @@ const updateTournamentSignupMessage = async (tournament) => {
 
     // Log pour déboguer
     logger.debug(
-      `[Inscription] Recherche de message pour ${tournament.name}. ${messages.size} messages récupérés`
+      `[Inscription] Recherche de message pour ${tournament.name}.`
     );
 
     // Recherche plus tolérante : on cherche le nom du tournoi dans le contenu ou les embeds
-    let existingMessage = messages.find((msg) => {
-      // Vérifier dans le contenu du message
-      if (msg.content && msg.content.includes(tournament.name)) {
-        return true;
-      }
-
-      // Vérifier dans les embeds s'ils existent
-      if (msg.embeds && msg.embeds.length > 0) {
-        return msg.embeds.some((embed) => {
-          // Vérifier le titre de l'embed
-          if (embed.title && embed.title.includes(tournament.name)) {
-            return true;
-          }
-
-          // Vérifier la description de l'embed
-          if (
-            embed.description &&
-            embed.description.includes(tournament.name)
-          ) {
-            return true;
-          }
-
-          // On peut aussi vérifier les champs si nécessaire
-          if (embed.fields && embed.fields.length > 0) {
-            return embed.fields.some(
-              (field) =>
-                field.value &&
-                (field.value.includes(tournament.game?.name) ||
-                  field.value.includes("Participants"))
-            );
-          }
-
-          return false;
-        });
-      }
-
-      return false;
-    });
+    let existingMessage = tournament.messageId
+      ? messages.get(tournament.messageId)
+      : null;
 
     // Créer l'embed pour les inscriptions
     const embed = createEmbed({
@@ -732,10 +697,14 @@ const updateTournamentSignupMessage = async (tournament) => {
     }
 
     // Créer un nouveau message si échec de la modification ou message inexistant
-    await targetChannel.send({
+    const newMessage = await targetChannel.send({
       content: `📣 **INSCRIPTIONS OUVERTES: ${tournament.name}**`,
       embeds: [embed],
     });
+
+    // Enregistrer l'ID du message dans le tournoi
+    tournament.messageId = newMessage.id;
+    await tournament.save();
 
     logger.info(`[Inscription] Nouveau message créé pour ${tournament.name}`);
     return true;

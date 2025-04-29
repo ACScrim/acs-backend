@@ -631,9 +631,7 @@ const updateTournamentSignupMessage = async (tournament) => {
     const messages = await targetChannel.messages.fetch({ limit: 100 });
 
     // Log pour déboguer
-    logger.debug(
-      `[Inscription] Recherche de message pour ${tournament.name}.`
-    );
+    logger.debug(`[Inscription] Recherche de message pour ${tournament.name}.`);
 
     // Recherche plus tolérante : on cherche le nom du tournoi dans le contenu ou les embeds
     let existingMessage = tournament.messageId
@@ -756,10 +754,22 @@ async function getOrCreateTournamentRole(tournament) {
 
     // Créer le rôle s'il n'existe pas
     if (!role) {
-      logger.info(`Création du rôle "${roleName}" pour le tournoi`);
+      // Générer une couleur basée sur le nom du jeu (simple et déterministe)
+      const hashCode = Array.from(tournament.game.name).reduce(
+        (acc, char) => acc + char.charCodeAt(0),
+        0
+      );
+
+      // Utiliser ce hash pour créer une couleur hex
+      const color = `#${((hashCode * 123456) % 0xffffff)
+        .toString(16)
+        .padStart(6, "0")}`;
+      logger.info(
+        `Création du rôle "${roleName}" pour le tournoi avec couleur ${color}`
+      );
       role = await guild.roles.create({
         name: roleName,
-        color: "#ec4899", // Rose cyberpunk
+        color: color,
         reason: `Rôle pour le tournoi ${tournament.name}`,
       });
 

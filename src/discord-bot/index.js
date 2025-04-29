@@ -770,6 +770,7 @@ async function getOrCreateTournamentRole(tournament) {
       role = await guild.roles.create({
         name: roleName,
         color: color,
+        hoist: true,
         reason: `Rôle pour le tournoi ${tournament.name}`,
       });
 

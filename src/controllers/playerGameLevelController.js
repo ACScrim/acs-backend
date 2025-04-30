@@ -185,3 +185,55 @@ exports.getPlayerLevelsByGame = async (req, res) => {
     });
   }
 };
+
+// Récupérer tous les niveaux de tous les joueurs pour tous les jeux
+exports.getAllPlayerLevels = async (req, res) => {
+  try {
+    const User = require("../models/User");
+
+    // Récupérer tous les niveaux
+    let levels = await PlayerGameLevel.find({})
+      .populate("player")
+      .populate("game")
+      .sort({ updatedAt: -1 });
+
+    // Transformer les niveaux pour inclure les informations utilisateur
+    const levelsWithUserInfo = await Promise.all(
+      levels.map(async (level) => {
+        const levelObject = level.toObject();
+
+        // Si le joueur existe et a un userId, récupérer les infos de l'utilisateur
+        if (levelObject.player && levelObject.player.userId) {
+          try {
+            const user = await User.findById(levelObject.player.userId).select(
+              "username avatarUrl"
+            );
+
+            if (user) {
+              // Ajouter les informations utilisateur directement dans l'objet player
+              levelObject.player.userInfo = {
+                username: user.username,
+                avatarUrl: user.avatarUrl,
+              };
+            }
+          } catch (userError) {
+            console.error(
+              "Erreur lors de la récupération de l'utilisateur:",
+              userError
+            );
+          }
+        }
+
+        return levelObject;
+      })
+    );
+
+    res.status(200).json(levelsWithUserInfo);
+  } catch (error) {
+    console.error("Erreur lors de la récupération de tous les niveaux:", error);
+    res.status(500).json({
+      message: "Erreur lors de la récupération de tous les niveaux",
+      error: error.message,
+    });
+  }
+};

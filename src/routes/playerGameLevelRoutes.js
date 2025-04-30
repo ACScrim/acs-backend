@@ -10,7 +10,7 @@ router.get(
   playerGameLevelController.getPlayerLevelForGame
 );
 router.get("/game/:gameId", playerGameLevelController.getPlayerLevelsByGame);
-
+router.get("/all", protect, playerGameLevelController.getAllPlayerLevels);
 // Routes protégées - nécessitent une authentification
 router.post(
   "/player/:playerId/game/:gameId",

@@ -16,21 +16,25 @@ const playerGameLevelSchema = new mongoose.Schema({
     enum: ["débutant", "intermédiaire", "avancé", "expert"],
     required: true,
   },
-  // Nouveau champ pour le pseudo dans le jeu
   gameUsername: {
     type: String,
     trim: true,
   },
-  // Nouveau champ pour savoir si le joueur est classé
   isRanked: {
     type: Boolean,
     default: false,
   },
-  // Nouveau champ pour le rang du joueur
   rank: {
     type: String,
     trim: true,
   },
+  // Nouveau champ pour stocker les rôles sélectionnés
+  selectedRoles: [
+    {
+      type: String,
+      trim: true,
+    },
+  ],
   // Commentaire ou notes sur l'expérience
   comment: {
     type: String,

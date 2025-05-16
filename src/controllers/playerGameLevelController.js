@@ -1,5 +1,6 @@
 const Player = require("../models/Player");
 const PlayerGameLevel = require("../models/PlayerGameLevel");
+const Game = require("../models/Game"); // Ajouter cette ligne manquante
 
 // Récupérer tous les niveaux d'un joueur
 exports.getPlayerLevels = async (req, res) => {
@@ -7,7 +8,7 @@ exports.getPlayerLevels = async (req, res) => {
     const { playerId } = req.params;
 
     const levels = await PlayerGameLevel.find({ player: playerId })
-      .populate("game", "name imageUrl")
+      .populate("game", "name imageUrl roles")
       .sort({ updatedAt: -1 });
 
     res.status(200).json(levels);
@@ -44,11 +45,12 @@ exports.getPlayerLevelForGame = async (req, res) => {
   }
 };
 
-// Définir ou mettre à jour le niveau d'un joueur pour un jeu
+// Mise à jour de la méthode setPlayerLevel pour inclure les rôles
 exports.setPlayerLevel = async (req, res) => {
   try {
     const { playerId, gameId } = req.params;
-    const { level, gameUsername, isRanked, rank, comment } = req.body;
+    const { level, gameUsername, isRanked, rank, comment, selectedRoles } =
+      req.body;
 
     // Validation du niveau
     const validLevels = ["débutant", "intermédiaire", "avancé", "expert"];
@@ -63,6 +65,27 @@ exports.setPlayerLevel = async (req, res) => {
     const playerExists = await Player.exists({ _id: playerId });
     if (!playerExists) {
       return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+
+    // Vérifier que les rôles sélectionnés sont valides pour ce jeu
+    if (selectedRoles && selectedRoles.length > 0) {
+      const game = await Game.findById(gameId);
+      if (!game) {
+        return res.status(404).json({ message: "Jeu non trouvé" });
+      }
+
+      const validRoleNames = game.roles.map((role) => role.name);
+      const invalidRoles = selectedRoles.filter(
+        (role) => !validRoleNames.includes(role)
+      );
+
+      if (invalidRoles.length > 0) {
+        return res.status(400).json({
+          message: `Les rôles suivants ne sont pas valides pour ce jeu: ${invalidRoles.join(
+            ", "
+          )}`,
+        });
+      }
     }
 
     // Rechercher si une entrée existe déjà
@@ -80,6 +103,7 @@ exports.setPlayerLevel = async (req, res) => {
       playerLevel.rank = rank || playerLevel.rank;
       playerLevel.comment =
         comment !== undefined ? comment : playerLevel.comment;
+      playerLevel.selectedRoles = selectedRoles || playerLevel.selectedRoles;
       playerLevel.updatedAt = Date.now();
       await playerLevel.save();
     } else {
@@ -91,6 +115,7 @@ exports.setPlayerLevel = async (req, res) => {
         gameUsername,
         isRanked: isRanked || false,
         rank,
+        selectedRoles: selectedRoles || [],
         comment,
       });
       await playerLevel.save();

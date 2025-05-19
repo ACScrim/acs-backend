@@ -579,7 +579,7 @@ exports.updateTournamentTeams = async (req, res) => {
 
     // Renvoyer le tournoi mis à jour (populé pour avoir toutes les données des équipes)
     const updatedTournament = await Tournament.findById(id).populate(
-      "teams.players"
+      "game players waitlistPlayers teams.players"
     );
 
     res.status(200).json({

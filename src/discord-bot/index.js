@@ -4,9 +4,15 @@ const {
   GatewayIntentBits,
   ChannelType,
   EmbedBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
+  Channel
 } = require("discord.js");
 const winston = require("winston");
 const Player = require("../models/Player");
+const GameProposal = require("../models/GameProposal");
+const User = require("../models/User");
 
 // Configuration initiale et variables d'environnement
 const token = process.env.DISCORD_TOKEN;
@@ -141,6 +147,8 @@ function createEmbed({
   fields = [],
   footerText = "ACS",
   timestamp = true,
+  imageUrl = null,
+  url = null,
 }) {
   const embed = new EmbedBuilder()
     .setColor(color)
@@ -159,7 +167,23 @@ function createEmbed({
 
   // Ajouter un timestamp si demandé
   if (timestamp) {
-    embed.setTimestamp();
+    if (typeof timestamp === "boolean") {
+      embed.setTimestamp();
+    }
+    // Si un timestamp spécifique est fourni, l'utiliser
+    else if (timestamp instanceof Date) {
+      embed.setTimestamp(timestamp);
+    }
+  }
+
+  // Ajouter une image si spécifiée
+  if (imageUrl) {
+    embed.setImage(imageUrl);
+  }
+
+  // Ajouter un lien si spécifié
+  if (url) {
+    embed.setURL(url);
   }
 
   return embed;
@@ -1085,6 +1109,212 @@ async function deleteTournamentRole(tournament) {
   }
 }
 
+// ===========================================
+// SECTION: EMBEDS PROPOSITION
+// ===========================================
+
+function buildProposalEmbed(proposal) {
+  // const yesVote = proposal.votes.some(
+  //   (vote) => vote.player._id.toString() === connectedUserId && vote.value === 1
+  // );
+  const yesButton = new ButtonBuilder()
+    .setCustomId("oui")
+    .setLabel("OUI")
+    .setStyle(ButtonStyle.Success);
+    // .setDisabled(yesVote);
+
+  // const noVote = proposal.votes.some(
+  //   (vote) =>
+  //     vote.player._id.toString() === connectedUserId && vote.value === -1
+  // );
+  const noButton = new ButtonBuilder()
+    .setCustomId("non")
+    .setLabel("NON")
+    .setStyle(ButtonStyle.Danger);
+    // .setDisabled(noVote);
+
+  const row = new ActionRowBuilder().addComponents(yesButton, noButton);
+
+  // Créer l'embed
+  const embed = createEmbed({
+    title: proposal.name,
+    description: proposal.description.slice(0, 100) + "...",
+    imageUrl: proposal.imageUrl,
+    url: `https://acscrim.fr/propositions-jeux/${proposal._id.toString()}`,
+    color: "#ec4899", // Rose cyberpunk
+    fields: [
+      {
+        name: "Votes OUI",
+        value: proposal.votes
+          .filter((vote) => vote.value === 1)
+          .length.toString(),
+        inline: true,
+      },
+      {
+        name: "Votes NON",
+        value: proposal.votes
+          .filter((vote) => vote.value === -1)
+          .length.toString(),
+        inline: true,
+      },
+    ],
+    footerText: `Proposé par ${proposal.proposedBy.username}`,
+    timestamp: new Date(proposal.createdAt),
+    
+  });
+  return { embed, row };
+}
+
+const CHANNEL_NAME = 'propositions-de-jeux'
+async function sendPropositionEmbed() {
+  try {
+    const guild = await fetchGuild();
+    if (!guild) return;
+
+    // Récupérer le canal de proposition
+    const channel = findChannel(
+      guild.channels.cache,
+      CHANNEL_NAME,
+      ChannelType.GuildText
+    );
+
+    if (!channel) {
+      logger.error("Canal de propositions introuvable");
+      return;
+    }
+
+    let lastBotMessage;
+    do {
+      lastBotMessage = await channel.messages.fetch({
+        limit: 1,
+      });
+      if (lastBotMessage.size > 0) {
+        if (!lastBotMessage.first().author.bot) {
+          await lastBotMessage.first().delete();
+        }
+      }
+    } while (lastBotMessage.size > 0 && !lastBotMessage.first().author.bot);
+
+    let proposals = await GameProposal.find({
+      status: "approved",
+      createdAt: {
+        $gt: new Date(
+          lastBotMessage.first()
+            ? lastBotMessage.first().embeds[0].timestamp
+            : null
+        ),
+      },
+    })
+      .populate("proposedBy", "username")
+      .populate("votes.player", "username")
+      .sort({ createdAt: 1 });
+
+    if (proposals.length === 0) {
+      logger.info("Aucune nouvelle proposition de jeu trouvée");
+      return;
+    }
+
+    for (const proposal of proposals) {
+      const { embed, row } = buildProposalEmbed(proposal);
+      // Envoyer l'embed
+      await channel.send({
+        embeds: [embed],
+        components: [row],
+        withResponse: true,
+      });
+    }
+  } catch (error) {
+    logger.error("Erreur lors de l'envoi de l'embed de proposition:", error);
+  }
+}
+
+async function deleteEmbedProposal(proposal) {
+  try {
+    const guild = await fetchGuild();
+    if (!guild) return;
+
+    // Récupérer le canal de proposition
+    const channel = findChannel(
+      guild.channels.cache,
+      CHANNEL_NAME,
+      ChannelType.GuildText
+    );
+
+    if (!channel) {
+      logger.error("Canal de propositions introuvable");
+      return;
+    }
+
+    // Récupérer le message contenant l'embed
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const message = messages.find(
+      (msg) => msg.embeds[0].url === `https://acscrim.fr/propositions-jeux/${proposal._id.toString()}`
+    );
+
+    if (message) {
+      await message.delete();
+      logger.info(`Embed de proposition supprimé pour ${proposal.name}`);
+    } else {
+      logger.warn(`Aucun message trouvé pour la proposition ${proposal.name}`);
+    }
+  } catch (error) {
+    logger.error("Erreur lors de la suppression de l'embed de proposition:", error);
+  }
+}
+
+// Make a interaction collector to handle the button clicks
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  const proposalId = interaction.message.embeds[0].url.split("/").pop();
+
+  const proposal = await GameProposal.findOne({ status: "approved", _id: proposalId })
+    .populate("proposedBy", "username")
+    .populate("votes.player", "username");
+  if (!proposal) {
+    await interaction.reply({
+      content: "Aucune proposition trouvée.",
+      ephemeral: true,
+    });
+    return;
+  }
+  const player = await User.findOne({
+    discordId: interaction.user.id,
+  }).populate("discordId", "username");
+  if (!player) {
+    await interaction.reply({
+      content: "Vous devez être connecté pour voter.",
+      ephemeral: true,
+    });
+    return;
+  }
+  const voteValue = interaction.customId === "oui" ? 1 : -1;
+  const existingVote = proposal.votes.find(
+    (vote) => vote.player._id.toString() === player._id.toString()
+  );
+  if (existingVote) {
+    // Si le vote existe déjà, on le met à jour
+    existingVote.value = voteValue;
+  } else {
+    // Sinon, on l'ajoute
+    proposal.votes.push({ player: player._id, value: voteValue });
+  }
+  await proposal.save();
+  const { embed, row } = buildProposalEmbed(proposal);
+  await interaction.update({
+    components: [row],
+    embeds: [embed]
+  });
+  logger.info(
+    `Vote '${interaction.customId}' enregistré pour la proposition ${proposal.name} par ${player.username}`
+  );
+});
+
+
+client.on("ready", async () => {
+  await sendPropositionEmbed()
+})
+
 // Connexion au bot Discord
 client
   .login(token)
@@ -1104,4 +1334,6 @@ module.exports = {
   removeTournamentRole,
   syncTournamentRoles,
   deleteTournamentRole,
+  sendPropositionEmbed,
+  deleteEmbedProposal
 };

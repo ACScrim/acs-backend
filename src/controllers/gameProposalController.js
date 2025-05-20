@@ -1,3 +1,4 @@
+const { sendPropositionEmbed, deleteEmbedProposal } = require("../discord-bot");
 const GameProposal = require("../models/GameProposal");
 const axios = require("axios");
 
@@ -169,6 +170,10 @@ exports.moderateProposal = async (req, res) => {
       proposal.rejectionReason = rejectionReason;
     }
 
+    if (proposal.status === "approved") {
+      await sendPropositionEmbed();
+    }
+
     await proposal.save();
     res.status(200).json(proposal);
   } catch (error) {
@@ -224,6 +229,8 @@ exports.deleteProposal = async (req, res) => {
     if (!proposal) {
       return res.status(404).json({ message: "Proposition non trouvée" });
     }
+
+    deleteEmbedProposal(proposal)
 
     res.status(200).json({ message: "Proposition supprimée avec succès" });
   } catch (error) {

@@ -170,11 +170,10 @@ exports.moderateProposal = async (req, res) => {
       proposal.rejectionReason = rejectionReason;
     }
 
+    await proposal.save();
     if (proposal.status === "approved") {
       await sendPropositionEmbed();
     }
-
-    await proposal.save();
     res.status(200).json(proposal);
   } catch (error) {
     console.error("Erreur lors de la modération de la proposition:", error);

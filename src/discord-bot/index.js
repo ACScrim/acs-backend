@@ -1310,7 +1310,8 @@ client.on("interactionCreate", async (interaction) => {
   );
 });
 
-const updateProposalEmbed = async (proposal) => {
+const updateProposalEmbed = async (p) => {
+  const proposal = p.populate("proposedBy", "username").populate("votes.player", "username");
   const { embed, row } = buildProposalEmbed(proposal);
   try {
     const guild = await fetchGuild();

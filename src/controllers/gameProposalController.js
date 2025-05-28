@@ -113,7 +113,7 @@ exports.voteProposal = async (req, res) => {
         .json({ message: "La valeur du vote doit être 1, -1 ou 0" });
     }
 
-    const proposal = await GameProposal.findById(proposalId).populate("proposedBy", "username").populate("votes.player", "username");;
+    const proposal = await GameProposal.findById(proposalId).populate("proposedBy", "username").populate("votes.player", "username");
     if (!proposal) {
       return res.status(404).json({ message: "Proposition non trouvée" });
     }

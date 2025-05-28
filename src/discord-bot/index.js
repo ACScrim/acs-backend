@@ -1159,8 +1159,7 @@ function buildProposalEmbed(proposal) {
       },
     ],
     footerText: `Proposé par ${proposal.proposedBy.username}`,
-    timestamp: new Date(proposal.createdAt),
-    
+    timestamp: new Date(proposal.createdAt)
   });
   return { embed, row };
 }
@@ -1299,7 +1298,7 @@ client.on("interactionCreate", async (interaction) => {
     // Sinon, on l'ajoute
     proposal.votes.push({ player: player._id, value: voteValue });
   }
-  proposal.totalVotes = (proposal.votes.filter(vote => vote.value === 1).length - proposal.votes.filter(vote => vote.value === -1).length);
+  proposal.totalVotes = proposal.calculateVotes();
   await proposal.save();
   const { embed, row } = buildProposalEmbed(proposal);
   await interaction.update({
@@ -1310,6 +1309,44 @@ client.on("interactionCreate", async (interaction) => {
     `Vote '${interaction.customId}' enregistré pour la proposition ${proposal.name} par ${player.username}`
   );
 });
+
+const updateProposalEmbed = async (proposal) => {
+  const { embed, row } = buildProposalEmbed(proposal);
+  try {
+    const guild = await fetchGuild();
+    if (!guild) return;
+
+    // Récupérer le canal de proposition
+    const channel = findChannel(
+      guild.channels.cache,
+      CHANNEL_NAME,
+      ChannelType.GuildText
+    );
+
+    if (!channel) {
+      logger.error("Canal de propositions introuvable");
+      return;
+    }
+
+    // Récupérer le message contenant l'embed
+    const messages = await channel.messages.fetch({ limit: 100 });
+    const message = messages.find(
+      (msg) => msg.embeds[0].url === `https://acscrim.fr/propositions-jeux/${proposal._id.toString()}`
+    );
+
+    if (message) {
+      await message.edit({
+        embeds: [embed],
+        components: [row],
+      });
+      logger.info(`Embed de proposition mis à jour pour ${proposal.name}`);
+    } else {
+      logger.warn(`Aucun message trouvé pour la proposition ${proposal.name}`);
+    }
+  } catch (error) {
+    logger.error("Erreur lors de la mise à jour de l'embed de proposition:", error);
+  }
+}
 
 
 client.on("ready", async () => {
@@ -1336,5 +1373,6 @@ module.exports = {
   syncTournamentRoles,
   deleteTournamentRole,
   sendPropositionEmbed,
-  deleteEmbedProposal
+  deleteEmbedProposal,
+  updateProposalEmbed
 };

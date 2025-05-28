@@ -1,4 +1,4 @@
-const { sendPropositionEmbed, deleteEmbedProposal } = require("../discord-bot");
+const { sendPropositionEmbed, deleteEmbedProposal, updateProposalEmbed } = require("../discord-bot");
 const GameProposal = require("../models/GameProposal");
 const axios = require("axios");
 
@@ -139,6 +139,8 @@ exports.voteProposal = async (req, res) => {
     // Recalculer le total des votes
     proposal.calculateVotes();
     await proposal.save();
+
+    updateProposalEmbed(proposal);
 
     res.status(200).json(proposal);
   } catch (error) {

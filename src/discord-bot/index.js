@@ -1299,7 +1299,7 @@ client.on("interactionCreate", async (interaction) => {
     // Sinon, on l'ajoute
     proposal.votes.push({ player: player._id, value: voteValue });
   }
-  proposal.totalVotes = proposal.votes.length;
+  proposal.totalVotes = proposal.votes.filter(vote => vote.value === 1).length;
   await proposal.save();
   const { embed, row } = buildProposalEmbed(proposal);
   await interaction.update({

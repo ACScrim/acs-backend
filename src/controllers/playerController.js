@@ -382,3 +382,234 @@ exports.getPlayerProfile = async (req, res) => {
     });
   }
 };
+
+// Récupérer les statistiques étendues d'un joueur
+exports.getExtendedStats = async (req, res) => {
+  try {
+    const playerId = req.params.id;
+
+    // Récupérer le joueur
+    const player = await Player.findById(playerId);
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé" });
+    }
+
+    // Récupérer tous les tournois où le joueur a participé
+    const tournaments = await Tournament.find({
+      $or: [{ players: playerId }, { "teams.players": playerId }],
+    })
+      .populate("game", "name imageUrl")
+      .populate("teams.players", "username")
+      .sort({ date: 1 }); // Trier par date croissante
+
+    // Calculer memberSince (date du premier tournoi)
+    const memberSince =
+      tournaments.length > 0
+        ? tournaments[0].date
+        : player.createdAt || new Date();
+
+    // Calculer lastSeen (date du dernier tournoi participé)
+    const lastSeen =
+      tournaments.length > 0
+        ? tournaments[tournaments.length - 1].date
+        : player.updatedAt || new Date();
+
+    // Calculer participationStreak (nombre de tournois consécutifs récents)
+    const participationStreak = calculateParticipationStreak(tournaments);
+
+    // Statistiques par jeu
+    const gameStats = calculateGameStats(tournaments, playerId);
+
+    // Statistiques sociales
+    const socialStats = calculateSocialStats(tournaments, playerId);
+
+    // Records personnels
+    const records = calculatePersonalRecords(tournaments, playerId);
+
+    const extendedStats = {
+      memberSince,
+      lastSeen,
+      participationStreak,
+      gameStats,
+      socialStats,
+      records,
+    };
+
+    res.status(200).json(extendedStats);
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des statistiques étendues:",
+      error
+    );
+    res.status(500).json({
+      message: "Erreur lors de la récupération des statistiques étendues",
+      error: error.message,
+    });
+  }
+};
+
+// Fonctions helper pour calculer les statistiques
+function calculateParticipationStreak(tournaments) {
+  if (tournaments.length === 0) return 0;
+
+  // Trier les tournois par date (plus récent en premier)
+  const sortedTournaments = [...tournaments].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  // Compter la série de participation en partant du plus récent
+  let streak = 0;
+  const now = new Date();
+
+  for (const tournament of sortedTournaments) {
+    const tournamentDate = new Date(tournament.date);
+
+    // Si le tournoi est dans le futur, l'ignorer
+    if (tournamentDate > now) continue;
+
+    // Compter le tournoi dans la série
+    streak++;
+  }
+
+  return streak;
+}
+
+function calculateGameStats(tournaments, playerId) {
+  const gameStatsMap = new Map();
+
+  tournaments.forEach((tournament) => {
+    if (!tournament.game) return;
+
+    const gameId = tournament.game._id.toString();
+    const gameName = tournament.game.name;
+    const gameImage = tournament.game.imageUrl;
+
+    if (!gameStatsMap.has(gameId)) {
+      gameStatsMap.set(gameId, {
+        gameId,
+        gameName,
+        gameImage,
+        wins: 0,
+        losses: 0,
+        totalPlayed: 0,
+      });
+    }
+
+    const stats = gameStatsMap.get(gameId);
+    stats.totalPlayed++;
+
+    // Trouver l'équipe du joueur et son classement
+    const playerTeam = tournament.teams?.find((team) =>
+      team.players.some((p) => p._id?.toString() === playerId.toString())
+    );
+
+    if (playerTeam) {
+      if (playerTeam.ranking === 1) {
+        stats.wins++;
+      } else if (playerTeam.ranking > 1) {
+        stats.losses++;
+      }
+    }
+  });
+
+  // Convertir en tableau et calculer le taux de victoire
+  const gameStatsArray = Array.from(gameStatsMap.values()).map((stats) => ({
+    ...stats,
+    winRate:
+      stats.totalPlayed > 0
+        ? Math.round((stats.wins / stats.totalPlayed) * 100)
+        : 0,
+  }));
+
+  // Trier par nombre de victoires décroissant
+  return gameStatsArray.sort((a, b) => b.wins - a.wins);
+}
+
+// Dans calculateSocialStats, vous pouvez simplifier :
+function calculateSocialStats(tournaments, playerId) {
+  const teammateStats = new Map();
+  let teamsFormed = 0;
+
+  tournaments.forEach((tournament) => {
+    if (!tournament.teams) return;
+
+    const playerTeam = tournament.teams.find((team) =>
+      team.players.some((p) => p._id?.toString() === playerId.toString())
+    );
+
+    if (playerTeam) {
+      teamsFormed++;
+      const isWinningTeam = playerTeam.ranking === 1;
+
+      playerTeam.players.forEach((teammate) => {
+        if (teammate._id?.toString() !== playerId.toString()) {
+          const teammateId = teammate._id?.toString();
+          const username = teammate.username || "Joueur inconnu";
+
+          if (!teammateStats.has(teammateId)) {
+            teammateStats.set(teammateId, {
+              playerId: teammateId,
+              username: username,
+              count: 0,
+              wins: 0,
+            });
+          }
+
+          const stats = teammateStats.get(teammateId);
+          stats.count++;
+          if (isWinningTeam) {
+            stats.wins++;
+          }
+        }
+      });
+    }
+  });
+
+  const teammateArray = Array.from(teammateStats.values());
+
+  // Coéquipiers fréquents - on peut supprimer le champ wins si pas utilisé
+  const frequentTeammates = teammateArray
+    .filter((t) => t.count >= 2)
+    .sort((a, b) => b.count - a.count)
+    .map(({ playerId, username, count }) => ({ playerId, username, count })); // ✅ Supprimer wins
+
+  // Partenaires de victoire
+  const winningPartners = teammateArray
+    .filter((t) => t.wins >= 1)
+    .sort((a, b) => b.wins - a.wins)
+    .map(({ playerId, username, wins }) => ({ playerId, username, wins })); // ✅ Garder seulement wins
+
+  return {
+    teamsFormed,
+    uniqueTeammates: teammateStats.size,
+    frequentTeammates,
+    winningPartners,
+  };
+}
+
+function calculatePersonalRecords(tournaments, playerId) {
+  let longestWinStreak = 0;
+  let currentWinStreak = 0;
+
+  tournaments.forEach((tournament) => {
+    if (!tournament.teams) return;
+
+    const playerTeam = tournament.teams.find((team) =>
+      team.players.some((p) => p._id?.toString() === playerId.toString())
+    );
+
+    if (playerTeam) {
+      // Calculer la série de victoires
+      if (playerTeam.ranking === 1) {
+        currentWinStreak++;
+        longestWinStreak = Math.max(longestWinStreak, currentWinStreak);
+      } else {
+        currentWinStreak = 0;
+      }
+    }
+  });
+
+  return {
+    longestWinStreak,
+  };
+}

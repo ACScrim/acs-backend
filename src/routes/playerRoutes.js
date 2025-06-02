@@ -11,6 +11,7 @@ const {
   getPlayerRankingsByGame,
   getPlayerByIdUser,
   getPlayerProfile,
+  getExtendedStats,
 } = require("../controllers/playerController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -29,5 +30,7 @@ router.get("/profile/:id", getPlayerProfile);
 
 router.route("/:id").delete(protect, admin, deletePlayer);
 router.route("/synchronize").post(protect, admin, synchronizePlayers);
+
+router.get("/:id/extended-stats", protect, getExtendedStats);
 
 module.exports = router;

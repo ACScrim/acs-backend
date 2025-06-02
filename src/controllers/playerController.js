@@ -478,7 +478,11 @@ function calculateGameStats(tournaments, playerId) {
   const gameStatsMap = new Map();
 
   tournaments.forEach((tournament) => {
-    if (!tournament.game) return;
+    if (!tournament.finished) {
+      return; // Passer au tournoi suivant
+    }
+
+    if (!tournament.teams || !tournament.game) return;
 
     const gameId = tournament.game._id.toString();
     const gameName = tournament.game.name;

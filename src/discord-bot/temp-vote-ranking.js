@@ -17,7 +17,7 @@ const GameProposal = require("../models/GameProposal");
 const winston = require("winston");
 
 // ⚠️ CONFIGURATION TEMPORAIRE - À SUPPRIMER
-const ANNOUNCEMENT_CHANNEL_ID = "1379759980634181762";
+const ANNOUNCEMENT_CHANNEL_ID = "1346232193453920256";
 
 // ✅ AJOUT: Variable pour l'intervalle de mise à jour
 let countdownInterval = null;
@@ -153,52 +153,52 @@ async function formatVoteRanking() {
     // ✅ NOUVEAU: Compte à rebours adaptatif
     let content = "";
     if (!maxGamesInfo.isFinished) {
-      content += `⏰ **${suppressionInfo.message}**\n`;
+      //content += `⏰ **${suppressionInfo.message}**\n`;
       content += `⏳ **Temps restant : ${suppressionInfo.timeLeft}**\n\n`;
     } else {
       content += `🏁 **Sélection terminée ! Les 2 jeux finaux sont choisis.**\n\n`;
     }
 
-    content += "🎮 **Classement des propositions de jeux**\n";
-    content += "➡️ Votez sur le site : https://acscrim.fr/propositions-jeux\n";
-    content +=
-      "ou dans le channel <#1374371008353407037> pour sauver vos favoris !\n\n";
+    // content += "🎮 **Classement des propositions de jeux**\n";
+    // content += "➡️ Votez sur le site : https://acscrim.fr/propositions-jeux\n";
+    // content +=
+    //   "ou dans le channel <#1374371008353407037> pour sauver vos favoris !\n\n";
 
-    // ✅ NOUVEAU: Planning de suppression
-    content += "📅 **Planning des suppressions :**\n";
-    SUPPRESSION_SCHEDULE.forEach((step, index) => {
-      const isPassed = now >= step.date;
-      const isCurrent =
-        !isPassed &&
-        (!SUPPRESSION_SCHEDULE[index - 1] ||
-          now >= SUPPRESSION_SCHEDULE[index - 1].date);
+    // // ✅ NOUVEAU: Planning de suppression
+    // content += "📅 **Planning des suppressions :**\n";
+    // SUPPRESSION_SCHEDULE.forEach((step, index) => {
+    //   const isPassed = now >= step.date;
+    //   const isCurrent =
+    //     !isPassed &&
+    //     (!SUPPRESSION_SCHEDULE[index - 1] ||
+    //       now >= SUPPRESSION_SCHEDULE[index - 1].date);
 
-      const dateStr = step.date.toLocaleDateString("fr-FR", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    //   const dateStr = step.date.toLocaleDateString("fr-FR", {
+    //     weekday: "short",
+    //     day: "numeric",
+    //     month: "short",
+    //     hour: "2-digit",
+    //     minute: "2-digit",
+    //   });
 
-      let lineText = `${dateStr} : ${step.maxGames} jeux max`;
-      let status = "";
+    //   let lineText = `${dateStr} : ${step.maxGames} jeux max`;
+    //   let status = "";
 
-      if (isPassed) {
-        // Barrer la ligne et ajouter un indicateur de fin
-        lineText = `~~${lineText}~~ **TERMINÉ**`;
-        status = "✅ ";
-      } else if (isCurrent) {
-        // Mettre en évidence l'étape en cours
-        lineText = `**${lineText}** 🔥 **EN COURS ** Temps restant : ${suppressionInfo.timeLeft}`;
-        status = "";
-      } else {
-        // Étapes futures
-        status = "⏳ ";
-      }
+    //   if (isPassed) {
+    //     // Barrer la ligne et ajouter un indicateur de fin
+    //     lineText = `~~${lineText}~~ **TERMINÉ**`;
+    //     status = "✅ ";
+    //   } else if (isCurrent) {
+    //     // Mettre en évidence l'étape en cours
+    //     lineText = `**${lineText}** 🔥 **EN COURS ** Temps restant : ${suppressionInfo.timeLeft}`;
+    //     status = "";
+    //   } else {
+    //     // Étapes futures
+    //     status = "⏳ ";
+    //   }
 
-      content += `${status}${lineText}\n`;
-    });
+    //   content += `${status}${lineText}\n`;
+    // });
     content += "\n";
 
     // ✅ NOUVEAU: Affichage avec statut de risque adaptatif

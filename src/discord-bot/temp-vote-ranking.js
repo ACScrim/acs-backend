@@ -288,8 +288,7 @@ async function createVoteRankingEmbed() {
 
     // ✅ CRÉER LE CLASSEMENT POUR LE CHAMP
     let ranking = "";
-    proposalsWithVotes.slice(0, 25).forEach((proposal, index) => {
-      // Limiter à 25 jeux
+    proposalsWithVotes.forEach((proposal, index) => {
       const votes = proposal.positiveVotes;
       const position = index + 1;
       const isAtRisk = position > maxGamesInfo.maxGames;

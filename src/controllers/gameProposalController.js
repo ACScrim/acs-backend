@@ -1,4 +1,10 @@
-const { sendPropositionEmbed, deleteEmbedProposal, updateProposalEmbed } = require("../discord-bot");
+const {
+  sendPropositionEmbed,
+  deleteEmbedProposal,
+  updateProposalEmbed,
+} = require("../discord-bot");
+// ⚠️ IMPORT TEMPORAIRE - À SUPPRIMER APRÈS 48H
+const { onVoteUpdate } = require("../discord-bot/temp-vote-ranking");
 const GameProposal = require("../models/GameProposal");
 const axios = require("axios");
 
@@ -113,7 +119,10 @@ exports.voteProposal = async (req, res) => {
         .json({ message: "La valeur du vote doit être 1, -1 ou 0" });
     }
 
-    const proposal = await GameProposal.findById(proposalId).populate("proposedBy", "username");
+    const proposal = await GameProposal.findById(proposalId).populate(
+      "proposedBy",
+      "username"
+    );
     if (!proposal) {
       return res.status(404).json({ message: "Proposition non trouvée" });
     }
@@ -141,6 +150,17 @@ exports.voteProposal = async (req, res) => {
     await proposal.save();
 
     updateProposalEmbed(proposal);
+
+    // ⚠️ APPEL TEMPORAIRE - À SUPPRIMER APRÈS 48H
+    // Mettre à jour le classement dans le canal d'annonces
+    try {
+      await onVoteUpdate();
+    } catch (tempError) {
+      console.warn(
+        "Erreur temporaire lors de la mise à jour du classement:",
+        tempError
+      );
+    }
 
     res.status(200).json(proposal);
   } catch (error) {
@@ -231,7 +251,7 @@ exports.deleteProposal = async (req, res) => {
       return res.status(404).json({ message: "Proposition non trouvée" });
     }
 
-    deleteEmbedProposal(proposal)
+    deleteEmbedProposal(proposal);
 
     res.status(200).json({ message: "Proposition supprimée avec succès" });
   } catch (error) {

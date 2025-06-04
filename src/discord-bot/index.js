@@ -7,12 +7,15 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
-  Channel
+  Channel,
 } = require("discord.js");
 const winston = require("winston");
 const Player = require("../models/Player");
 const GameProposal = require("../models/GameProposal");
 const User = require("../models/User");
+
+// ⚠️ IMPORT TEMPORAIRE - À SUPPRIMER APRÈS 48H
+const { sendInitialVoteRanking } = require("./temp-vote-ranking");
 
 // Configuration initiale et variables d'environnement
 const token = process.env.DISCORD_TOKEN;
@@ -1121,7 +1124,7 @@ function buildProposalEmbed(proposal) {
     .setCustomId("oui")
     .setLabel("OUI")
     .setStyle(ButtonStyle.Success);
-    // .setDisabled(yesVote);
+  // .setDisabled(yesVote);
 
   // const noVote = proposal.votes.some(
   //   (vote) =>
@@ -1131,7 +1134,7 @@ function buildProposalEmbed(proposal) {
     .setCustomId("non")
     .setLabel("NON")
     .setStyle(ButtonStyle.Danger);
-    // .setDisabled(noVote);
+  // .setDisabled(noVote);
 
   const row = new ActionRowBuilder().addComponents(yesButton, noButton);
 
@@ -1159,12 +1162,12 @@ function buildProposalEmbed(proposal) {
       },
     ],
     footerText: `Proposé par ${proposal.proposedBy.username}`,
-    timestamp: new Date(proposal.createdAt)
+    timestamp: new Date(proposal.createdAt),
   });
   return { embed, row };
 }
 
-const CHANNEL_NAME = 'propositions-de-jeux'
+const CHANNEL_NAME = "propositions-de-jeux";
 async function sendPropositionEmbed() {
   try {
     const guild = await fetchGuild();
@@ -1247,7 +1250,9 @@ async function deleteEmbedProposal(proposal) {
     // Récupérer le message contenant l'embed
     const messages = await channel.messages.fetch({ limit: 100 });
     const message = messages.find(
-      (msg) => msg.embeds[0].url === `https://acscrim.fr/propositions-jeux/${proposal._id.toString()}`
+      (msg) =>
+        msg.embeds[0].url ===
+        `https://acscrim.fr/propositions-jeux/${proposal._id.toString()}`
     );
 
     if (message) {
@@ -1257,7 +1262,10 @@ async function deleteEmbedProposal(proposal) {
       logger.warn(`Aucun message trouvé pour la proposition ${proposal.name}`);
     }
   } catch (error) {
-    logger.error("Erreur lors de la suppression de l'embed de proposition:", error);
+    logger.error(
+      "Erreur lors de la suppression de l'embed de proposition:",
+      error
+    );
   }
 }
 
@@ -1267,7 +1275,10 @@ client.on("interactionCreate", async (interaction) => {
 
   const proposalId = interaction.message.embeds[0].url.split("/").pop();
 
-  const proposal = await GameProposal.findOne({ status: "approved", _id: proposalId })
+  const proposal = await GameProposal.findOne({
+    status: "approved",
+    _id: proposalId,
+  })
     .populate("proposedBy", "username")
     .populate("votes.player", "username");
   if (!proposal) {
@@ -1303,7 +1314,7 @@ client.on("interactionCreate", async (interaction) => {
   const { embed, row } = buildProposalEmbed(proposal);
   await interaction.update({
     components: [row],
-    embeds: [embed]
+    embeds: [embed],
   });
   logger.info(
     `Vote '${interaction.customId}' enregistré pour la proposition ${proposal.name} par ${player.username}`
@@ -1331,7 +1342,9 @@ const updateProposalEmbed = async (proposal) => {
     // Récupérer le message contenant l'embed
     const messages = await channel.messages.fetch({ limit: 100 });
     const message = messages.find(
-      (msg) => msg.embeds[0].url === `https://acscrim.fr/propositions-jeux/${proposal._id.toString()}`
+      (msg) =>
+        msg.embeds[0].url ===
+        `https://acscrim.fr/propositions-jeux/${proposal._id.toString()}`
     );
 
     if (message) {
@@ -1344,14 +1357,27 @@ const updateProposalEmbed = async (proposal) => {
       logger.warn(`Aucun message trouvé pour la proposition ${proposal.name}`);
     }
   } catch (error) {
-    logger.error("Erreur lors de la mise à jour de l'embed de proposition:", error);
+    logger.error(
+      "Erreur lors de la mise à jour de l'embed de proposition:",
+      error
+    );
   }
-}
-
+};
 
 client.on("ready", async () => {
-  await sendPropositionEmbed()
-})
+  await sendPropositionEmbed();
+
+  // ⚠️ APPEL TEMPORAIRE - À SUPPRIMER APRÈS 48H
+  // Envoyer le classement initial des votes
+  try {
+    await sendInitialVoteRanking();
+  } catch (tempError) {
+    console.warn(
+      "Erreur temporaire lors de l'envoi du classement initial:",
+      tempError
+    );
+  }
+});
 
 // Connexion au bot Discord
 client
@@ -1374,5 +1400,7 @@ module.exports = {
   deleteTournamentRole,
   sendPropositionEmbed,
   deleteEmbedProposal,
-  updateProposalEmbed
+  updateProposalEmbed,
+  // ⚠️ EXPORT TEMPORAIRE - À SUPPRIMER APRÈS 48H
+  client, // ← AJOUTER CETTE LIGNE
 };

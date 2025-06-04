@@ -317,13 +317,6 @@ async function createVoteRankingEmbed() {
       }\n`;
     });
 
-    // Ajouter indication s'il y a plus de jeux
-    if (proposalsWithVotes.length > 25) {
-      ranking += `\n... et ${proposalsWithVotes.length - 25} autre${
-        proposalsWithVotes.length - 25 > 1 ? "s" : ""
-      } jeu${proposalsWithVotes.length - 25 > 1 ? "x" : ""}`;
-    }
-
     // ✅ CRÉER L'EMBED FINAL
     const embed = new EmbedBuilder()
       .setTitle("🎮 Classement des propositions de jeux")

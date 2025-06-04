@@ -17,7 +17,7 @@ const GameProposal = require("../models/GameProposal");
 const winston = require("winston");
 
 // ⚠️ CONFIGURATION TEMPORAIRE - À SUPPRIMER
-const ANNOUNCEMENT_CHANNEL_ID = "1346232193453920256";
+const ANNOUNCEMENT_CHANNEL_ID = "1379759980634181762";
 
 // ✅ AJOUT: Variable pour l'intervalle de mise à jour
 let countdownInterval = null;
@@ -123,138 +123,7 @@ function getNextSuppressionInfo(currentDate = new Date()) {
 }
 
 /**
- * ⚠️ FONCTION TEMPORAIRE - Formate le classement des propositions
- */
-async function formatVoteRanking() {
-  try {
-    // Récupérer toutes les propositions approuvées avec leurs votes
-    const proposals = await GameProposal.find({ status: "approved" })
-      .populate("proposedBy", "username")
-      .populate("votes.player", "username");
-
-    if (!proposals || proposals.length === 0) {
-      return "Aucune proposition de jeu trouvée.";
-    }
-
-    const now = new Date();
-
-    // ✅ NOUVEAU: Calculer les infos de suppression progressive
-    const suppressionInfo = getNextSuppressionInfo(now);
-    const maxGamesInfo = calculateMaxGamesForDate(now);
-
-    // Trier les propositions par votes positifs
-    const proposalsWithVotes = proposals
-      .map((proposal) => ({
-        name: proposal.name,
-        positiveVotes: proposal.votes.filter((vote) => vote.value === 1).length,
-      }))
-      .sort((a, b) => b.positiveVotes - a.positiveVotes);
-
-    // ✅ NOUVEAU: Compte à rebours adaptatif
-    let content = "";
-    if (!maxGamesInfo.isFinished) {
-      //content += `⏰ **${suppressionInfo.message}**\n`;
-      content += `⏳ **Temps restant : ${suppressionInfo.timeLeft}**\n\n`;
-    } else {
-      content += `🏁 **Sélection terminée ! Les 2 jeux finaux sont choisis.**\n\n`;
-    }
-
-    // content += "🎮 **Classement des propositions de jeux**\n";
-    // content += "➡️ Votez sur le site : https://acscrim.fr/propositions-jeux\n";
-    // content +=
-    //   "ou dans le channel <#1374371008353407037> pour sauver vos favoris !\n\n";
-
-    // // ✅ NOUVEAU: Planning de suppression
-    // content += "📅 **Planning des suppressions :**\n";
-    // SUPPRESSION_SCHEDULE.forEach((step, index) => {
-    //   const isPassed = now >= step.date;
-    //   const isCurrent =
-    //     !isPassed &&
-    //     (!SUPPRESSION_SCHEDULE[index - 1] ||
-    //       now >= SUPPRESSION_SCHEDULE[index - 1].date);
-
-    //   const dateStr = step.date.toLocaleDateString("fr-FR", {
-    //     weekday: "short",
-    //     day: "numeric",
-    //     month: "short",
-    //     hour: "2-digit",
-    //     minute: "2-digit",
-    //   });
-
-    //   let lineText = `${dateStr} : ${step.maxGames} jeux max`;
-    //   let status = "";
-
-    //   if (isPassed) {
-    //     // Barrer la ligne et ajouter un indicateur de fin
-    //     lineText = `~~${lineText}~~ **TERMINÉ**`;
-    //     status = "✅ ";
-    //   } else if (isCurrent) {
-    //     // Mettre en évidence l'étape en cours
-    //     lineText = `**${lineText}** 🔥 **EN COURS ** Temps restant : ${suppressionInfo.timeLeft}`;
-    //     status = "";
-    //   } else {
-    //     // Étapes futures
-    //     status = "⏳ ";
-    //   }
-
-    //   content += `${status}${lineText}\n`;
-    // });
-    content += "\n";
-
-    // ✅ NOUVEAU: Affichage avec statut de risque adaptatif
-    proposalsWithVotes.forEach((proposal, index) => {
-      const votes = proposal.positiveVotes;
-      const position = index + 1;
-      const isAtRisk = position > maxGamesInfo.maxGames;
-
-      let statusIcon = "";
-      if (!maxGamesInfo.isFinished) {
-        if (!isAtRisk) {
-          statusIcon = "✅"; // Sûr pour l'instant
-        } else {
-          statusIcon = "⚠️"; // À risque
-        }
-      } else {
-        // Sélection terminée
-        if (position <= 2) {
-          statusIcon = position === 1 ? "🏆" : "🎖️"; // Les 2 gagnants
-        } else {
-          statusIcon = "❌"; // Éliminés
-        }
-      }
-
-      let riskText = "";
-      if (!maxGamesInfo.isFinished && isAtRisk) {
-        riskText = ` • **Risque d'être supprimé ${
-          suppressionInfo.nextDate
-            ? "le " +
-              suppressionInfo.nextDate.toLocaleDateString("fr-FR", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })
-            : "bientôt"
-        }**`;
-      } else if (maxGamesInfo.isFinished && position > 2) {
-        riskText = " • **Éliminé**";
-      } else if (!isAtRisk) {
-        riskText = " • **Qualifié pour l'étape suivante**";
-      }
-
-      content += `${statusIcon} **${position}.** **${
-        proposal.name
-      }** — ${votes} vote${votes > 1 ? "s" : ""}${riskText}\n`;
-    });
-
-    return content;
-  } catch (error) {
-    logger.error("Erreur lors du formatage du classement:", error);
-    return "Erreur lors de la récupération du classement.";
-  }
-}
-
-/**
- * ⚠️ FONCTION TEMPORAIRE - Envoie ou met à jour le message de classement
+ * ⚠️ FONCTION TEMPORAIRE - Envoie ou met à jour le message de classement (VERSION EMBED)
  */
 async function updateVoteRankingMessage() {
   try {
@@ -271,10 +140,10 @@ async function updateVoteRankingMessage() {
       return false;
     }
 
-    // Formater le contenu
-    const content = await formatVoteRanking();
+    // ✅ CRÉER L'EMBED AU LIEU DU CONTENU TEXTE
+    const embed = await createVoteRankingEmbed();
 
-    // ✅ CORRECTION: Rechercher un message existant de classement
+    // ✅ CORRECTION: Rechercher un message existant avec embed
     let existingMessage = null;
     let messageId = global.tempVoteRankingMessageId;
 
@@ -288,7 +157,6 @@ async function updateVoteRankingMessage() {
           `Message avec ID ${messageId} introuvable:`,
           fetchError.message
         );
-        // Réinitialiser l'ID si le message n'existe plus
         global.tempVoteRankingMessageId = null;
       }
     }
@@ -298,23 +166,19 @@ async function updateVoteRankingMessage() {
       try {
         const messages = await channel.messages.fetch({ limit: 50 });
 
-        // ✅ CORRECTION: Utiliser la nouvelle signature de recherche
+        // ✅ CORRECTION: Rechercher par embed au lieu du contenu
         existingMessage = messages.find(
           (msg) =>
             msg.author.id === client.user.id && // Message du bot
-            (msg.content.includes(
-              "🎮 **Classement des propositions de jeux**"
-            ) || // Nouvelle signature
-              msg.content.includes(
-                "🎮 **Voici tous les jeux les plus votés !**"
-              )) // Ancienne signature (au cas où)
+            msg.embeds.length > 0 && // Contient un embed
+            (msg.embeds[0].title?.includes("Classement") || // Titre contient "Classement"
+              msg.embeds[0].description?.includes("⏳")) // Ou description contient le timer
         );
 
         if (existingMessage) {
           logger.info(
             `Message existant trouvé par recherche: ${existingMessage.id}`
           );
-          // Sauvegarder l'ID pour les prochaines fois
           global.tempVoteRankingMessageId = existingMessage.id;
         }
       } catch (searchError) {
@@ -328,7 +192,7 @@ async function updateVoteRankingMessage() {
     // 3. Mettre à jour le message existant ou en créer un nouveau
     if (existingMessage) {
       try {
-        await existingMessage.edit({ content });
+        await existingMessage.edit({ embeds: [embed] });
         logger.info("Message de classement mis à jour");
         return true;
       } catch (editError) {
@@ -342,7 +206,7 @@ async function updateVoteRankingMessage() {
 
     // 4. Créer un nouveau message seulement si nécessaire
     logger.info("Création d'un nouveau message de classement");
-    const newMessage = await channel.send({ content });
+    const newMessage = await channel.send({ embeds: [embed] });
     global.tempVoteRankingMessageId = newMessage.id;
 
     logger.info(`Nouveau message de classement créé: ${newMessage.id}`);
@@ -353,6 +217,138 @@ async function updateVoteRankingMessage() {
       error
     );
     return false;
+  }
+}
+
+/**
+ * ⚠️ FONCTION TEMPORAIRE - Crée l'embed du classement des votes
+ */
+async function createVoteRankingEmbed() {
+  try {
+    const proposals = await GameProposal.find({ status: "approved" })
+      .populate("proposedBy", "username")
+      .populate("votes.player", "username");
+
+    if (!proposals || proposals.length === 0) {
+      return new EmbedBuilder()
+        .setTitle("🎮 Classement des propositions de jeux")
+        .setDescription("Aucune proposition de jeu trouvée.")
+        .setColor("#FF6B6B")
+        .setTimestamp();
+    }
+
+    const now = new Date();
+    const suppressionInfo = getNextSuppressionInfo(now);
+    const maxGamesInfo = calculateMaxGamesForDate(now);
+
+    const proposalsWithVotes = proposals
+      .map((proposal) => ({
+        name: proposal.name,
+        positiveVotes: proposal.votes.filter((vote) => vote.value === 1).length,
+      }))
+      .sort((a, b) => b.positiveVotes - a.positiveVotes);
+
+    // ✅ DESCRIPTION PRINCIPALE
+    let description = "";
+    if (!maxGamesInfo.isFinished) {
+      description += `⏳ **Temps restant avant la prochaine étape : ${suppressionInfo.timeLeft}**\n\n`;
+    } else {
+      description += `🏁 **Sélection terminée ! Les 2 jeux finaux sont choisis.**\n\n`;
+    }
+
+    description +=
+      "➡️ [Votez sur le site](https://acscrim.fr/propositions-jeux)\n";
+    description += "ou dans le channel <#1374371008353407037>\n\n";
+
+    // ✅ PLANNING DE SUPPRESSION
+    description += "**📅 Planning des suppressions :**\n";
+    SUPPRESSION_SCHEDULE.forEach((step, index) => {
+      const isPassed = now >= step.date;
+      const isCurrent =
+        !isPassed &&
+        (!SUPPRESSION_SCHEDULE[index - 1] ||
+          now >= SUPPRESSION_SCHEDULE[index - 1].date);
+
+      const dateStr = step.date.toLocaleDateString("fr-FR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      if (isPassed) {
+        description += `~~${dateStr} : ${step.maxGames} jeux~~\n`;
+      } else if (isCurrent) {
+        description += `🔥 **${dateStr} : ${step.maxGames} jeux** (EN COURS) Temps restant : ${suppressionInfo.timeLeft}\n`;
+      } else {
+        description += `⏳ ${dateStr} : ${step.maxGames} jeux\n`;
+      }
+    });
+
+    // ✅ CRÉER LE CLASSEMENT POUR LE CHAMP
+    let ranking = "";
+    proposalsWithVotes.slice(0, 25).forEach((proposal, index) => {
+      // Limiter à 25 jeux
+      const votes = proposal.positiveVotes;
+      const position = index + 1;
+      const isAtRisk = position > maxGamesInfo.maxGames;
+
+      let icon = "";
+      if (!maxGamesInfo.isFinished) {
+        if (position <= 2) {
+          icon = ["🥇", "🥈"][index]; // Top 3
+        } else if (!isAtRisk) {
+          icon = "✅"; // Sûr
+        } else {
+          icon = "⚠️"; // À risque
+        }
+      } else {
+        // Sélection terminée
+        if (position <= 2) {
+          icon = position === 1 ? "🏆" : "🎖️"; // Les 2 gagnants
+        } else {
+          icon = "❌"; // Éliminés
+        }
+      }
+
+      ranking += `${icon} **${position}.** ${proposal.name} — ${votes} vote${
+        votes > 1 ? "s" : ""
+      }\n`;
+    });
+
+    // Ajouter indication s'il y a plus de jeux
+    if (proposalsWithVotes.length > 25) {
+      ranking += `\n... et ${proposalsWithVotes.length - 25} autre${
+        proposalsWithVotes.length - 25 > 1 ? "s" : ""
+      } jeu${proposalsWithVotes.length - 25 > 1 ? "x" : ""}`;
+    }
+
+    // ✅ CRÉER L'EMBED FINAL
+    const embed = new EmbedBuilder()
+      .setTitle("🎮 Classement des propositions de jeux")
+      .setDescription(description)
+      .addFields({
+        name: "🏆 Classement actuel",
+        value: ranking || "Aucun jeu trouvé",
+        inline: false,
+      })
+      .setColor(maxGamesInfo.isFinished ? "#00FF00" : "#FF6B6B") // Vert si terminé, rouge sinon
+      .setTimestamp()
+      .setFooter({
+        text: maxGamesInfo.isFinished
+          ? "Sélection terminée"
+          : "Mise à jour automatique",
+      });
+
+    return embed;
+  } catch (error) {
+    logger.error("Erreur lors de la création de l'embed:", error);
+    return new EmbedBuilder()
+      .setTitle("🎮 Classement des propositions de jeux")
+      .setDescription("❌ Erreur lors de la récupération du classement.")
+      .setColor("#FF0000")
+      .setTimestamp();
   }
 }
 
@@ -469,7 +465,7 @@ module.exports = {
   // ✅ AJOUT: Nouvelles fonctions pour le compte à rebours
   startCountdownUpdates,
   stopCountdownUpdates,
-  formatVoteRanking,
+  createVoteRankingEmbed,
 };
 
 /**

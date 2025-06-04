@@ -288,7 +288,8 @@ async function createVoteRankingEmbed() {
 
     // ✅ CRÉER LE CLASSEMENT POUR LE CHAMP
     let ranking = "";
-    proposalsWithVotes.forEach((proposal, index) => {
+    proposalsWithVotes.slice(0, 25).forEach((proposal, index) => {
+      // Limiter à 25 jeux
       const votes = proposal.positiveVotes;
       const position = index + 1;
       const isAtRisk = position > maxGamesInfo.maxGames;
@@ -315,6 +316,13 @@ async function createVoteRankingEmbed() {
         votes > 1 ? "s" : ""
       }\n`;
     });
+
+    // Ajouter indication s'il y a plus de jeux
+    if (proposalsWithVotes.length > 25) {
+      ranking += `\n... et ${proposalsWithVotes.length - 25} autre${
+        proposalsWithVotes.length - 25 > 1 ? "s" : ""
+      } jeu${proposalsWithVotes.length - 25 > 1 ? "x" : ""}`;
+    }
 
     // ✅ CRÉER L'EMBED FINAL
     const embed = new EmbedBuilder()

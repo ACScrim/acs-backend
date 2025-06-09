@@ -14,9 +14,6 @@ const Player = require("../models/Player");
 const GameProposal = require("../models/GameProposal");
 const User = require("../models/User");
 
-// ⚠️ IMPORT TEMPORAIRE - À SUPPRIMER APRÈS 48H
-const { sendInitialVoteRanking } = require("./temp-vote-ranking");
-
 // Configuration initiale et variables d'environnement
 const token = process.env.DISCORD_TOKEN;
 const guildId = process.env.DISCORD_GUILD_ID || "1330973733929615420";
@@ -1367,10 +1364,7 @@ const updateProposalEmbed = async (proposal) => {
 client.on("ready", async () => {
   await sendPropositionEmbed();
 
-  // ⚠️ APPEL TEMPORAIRE - À SUPPRIMER APRÈS 48H
-  // Envoyer le classement initial des votes
   try {
-    await sendInitialVoteRanking();
   } catch (tempError) {
     console.warn(
       "Erreur temporaire lors de l'envoi du classement initial:",
@@ -1401,6 +1395,4 @@ module.exports = {
   sendPropositionEmbed,
   deleteEmbedProposal,
   updateProposalEmbed,
-  // ⚠️ EXPORT TEMPORAIRE - À SUPPRIMER APRÈS 48H
-  client, // ← AJOUTER CETTE LIGNE
 };

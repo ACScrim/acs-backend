@@ -3,8 +3,6 @@ const {
   deleteEmbedProposal,
   updateProposalEmbed,
 } = require("../discord-bot");
-// ⚠️ IMPORT TEMPORAIRE - À SUPPRIMER APRÈS 48H
-const { onVoteUpdate } = require("../discord-bot/temp-vote-ranking");
 const GameProposal = require("../models/GameProposal");
 const axios = require("axios");
 
@@ -150,17 +148,6 @@ exports.voteProposal = async (req, res) => {
     await proposal.save();
 
     updateProposalEmbed(proposal);
-
-    // ⚠️ APPEL TEMPORAIRE - À SUPPRIMER APRÈS 48H
-    // Mettre à jour le classement dans le canal d'annonces
-    try {
-      await onVoteUpdate();
-    } catch (tempError) {
-      console.warn(
-        "Erreur temporaire lors de la mise à jour du classement:",
-        tempError
-      );
-    }
 
     res.status(200).json(proposal);
   } catch (error) {

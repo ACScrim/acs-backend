@@ -903,7 +903,6 @@ async function removeTournamentRole(player, tournament) {
     const role = guild.roles.cache.find((r) => r.name === roleName);
 
     if (!role) {
-      logger.warn(`Rôle ${roleName} non trouvé sur le serveur`);
       return false;
     }
 
@@ -1106,6 +1105,379 @@ async function deleteTournamentRole(tournament) {
       error
     );
     return false;
+  }
+}
+
+// ===========================================
+// SECTION: GESTION DES RÔLES DE JEU UTILISATEUR
+// ===========================================
+
+/**
+ * Format le nom d'un rôle pour un jeu utilisateur
+ * @param {Object} game - L'objet jeu
+ * @returns {string} Le nom formaté du rôle
+ */
+function formatGameRoleName(game) {
+  if (!game || !game.name) return null;
+  // Format: nom du jeu en minuscules avec tirets au lieu d'espaces
+  return game.name.replace(/\s+/g, "-").toLowerCase();
+}
+
+/**
+ * Récupère ou crée un rôle pour un jeu spécifique
+ * @param {Object} game - L'objet jeu
+ * @returns {Promise<Role|null>} Le rôle récupéré ou créé, ou null en cas d'erreur
+ */
+async function getOrCreateGameRole(game) {
+  try {
+    if (!game || !game.name) {
+      logger.warn(`Jeu invalide fourni pour la création de rôle`);
+      return null;
+    }
+
+    const guild = await fetchGuild();
+    if (!guild) return null;
+
+    // Forcer le rafraîchissement du cache des rôles
+    await guild.roles.fetch(null, { force: true });
+
+    const roleName = formatGameRoleName(game);
+
+    // Chercher si le rôle existe déjà
+    let role = guild.roles.cache.find((r) => r.name === roleName);
+
+    // Créer le rôle s'il n'existe pas
+    if (!role) {
+      logger.info(`Création du rôle de jeu "${roleName}"`);
+
+      // Générer une couleur basée sur le nom du jeu
+      const hashCode = Array.from(game.name).reduce(
+        (acc, char) => acc + char.charCodeAt(0),
+        0
+      );
+
+      // Utiliser le hash pour créer une couleur hex cohérente
+      const color = `#${((hashCode * 654321) % 0xffffff)
+        .toString(16)
+        .padStart(6, "0")}`;
+
+      role = await guild.roles.create({
+        name: roleName,
+        color: color,
+        hoist: false, // Ne pas séparer dans la liste des membres
+        mentionable: true, // Permettre les mentions
+        reason: `Rôle automatique pour le jeu ${game.name}`,
+      });
+
+      logger.info(`✅ Rôle "${roleName}" créé avec succès (couleur: ${color})`);
+
+      // Petit délai pour s'assurer que le rôle est bien créé
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Rafraîchir le cache pour être sûr d'avoir le rôle
+      await guild.roles.fetch(null, { force: true });
+      role = guild.roles.cache.find((r) => r.name === roleName);
+    } else {
+      logger.debug(`Rôle "${roleName}" existe déjà`);
+    }
+
+    return role;
+  } catch (error) {
+    logger.error(
+      `Erreur lors de la création/récupération du rôle pour ${game?.name}:`,
+      error
+    );
+    return null;
+  }
+}
+
+/**
+ * Ajoute un rôle de jeu à un utilisateur
+ * @param {Object} user - L'utilisateur Discord (avec discordId)
+ * @param {Object} game - L'objet jeu
+ * @returns {Promise<boolean>} Succès ou échec de l'opération
+ */
+async function addGameRoleToUser(user, game) {
+  try {
+    if (!user || !user.discordId) {
+      logger.warn(
+        `Pas de Discord ID pour l'utilisateur ${user?._id || "inconnu"}`
+      );
+      return false;
+    }
+
+    const guild = await fetchGuild();
+    if (!guild) return false;
+
+    const role = await getOrCreateGameRole(game);
+    if (!role) {
+      logger.error(`Impossible de créer/récupérer le rôle pour ${game?.name}`);
+      return false;
+    }
+
+    try {
+      // Récupérer le membre Discord
+      const member = await guild.members.fetch({
+        user: user.discordId,
+        force: true,
+      });
+
+      if (!member) {
+        logger.warn(`Membre Discord non trouvé pour l'ID: ${user.discordId}`);
+        return false;
+      }
+
+      // Forcer la récupération des rôles du membre
+      await member.fetch(true);
+
+      // Ajouter le rôle s'il ne l'a pas déjà
+      if (!member.roles.cache.has(role.id)) {
+        await member.roles.add(
+          role,
+          `Rôle de jeu ajouté via les paramètres utilisateur`
+        );
+        logger.info(
+          `✅ Rôle "${role.name}" ajouté à ${user.username} (${game.name})`
+        );
+      } else {
+        logger.debug(`${user.username} a déjà le rôle "${role.name}"`);
+      }
+
+      return true;
+    } catch (memberError) {
+      logger.error(
+        `Erreur lors de la récupération du membre Discord ${user.discordId}:`,
+        memberError
+      );
+      return false;
+    }
+  } catch (error) {
+    logger.error(
+      `Erreur lors de l'ajout du rôle de jeu à ${user?.username || "inconnu"}:`,
+      error
+    );
+    return false;
+  }
+}
+
+/**
+ * Retire un rôle de jeu à un utilisateur
+ * @param {Object} user - L'utilisateur Discord (avec discordId)
+ * @param {Object} game - L'objet jeu
+ * @returns {Promise<boolean>} Succès ou échec de l'opération
+ */
+async function removeGameRoleFromUser(user, game) {
+  try {
+    if (!user || !user.discordId) {
+      logger.warn(
+        `Pas de Discord ID pour l'utilisateur ${user?._id || "inconnu"}`
+      );
+      return false;
+    }
+
+    const guild = await fetchGuild();
+    if (!guild) return false;
+
+    // Forcer la récupération des rôles
+    await guild.roles.fetch(null, { force: true });
+
+    const roleName = formatGameRoleName(game);
+    const role = guild.roles.cache.find((r) => r.name === roleName);
+
+    if (!role) {
+      return false; // Pas d'erreur si le rôle n'existe pas
+    }
+
+    try {
+      // Récupérer le membre Discord
+      const member = await guild.members.fetch({
+        user: user.discordId,
+        force: true,
+      });
+
+      if (!member) {
+        logger.warn(`Membre Discord non trouvé pour l'ID: ${user.discordId}`);
+        return false;
+      }
+
+      // Forcer la récupération des rôles du membre
+      await member.fetch(true);
+
+      // Retirer le rôle s'il l'a
+      if (member.roles.cache.has(role.id)) {
+        await member.roles.remove(
+          role,
+          `Rôle de jeu retiré via les paramètres utilisateur`
+        );
+        logger.info(
+          `❌ Rôle "${role.name}" retiré à ${user.username} (${game.name})`
+        );
+      } else {
+        logger.debug(
+          `${user.username} n'a pas le rôle "${role.name}" à retirer`
+        );
+      }
+
+      return true;
+    } catch (memberError) {
+      logger.error(
+        `Erreur lors de la récupération du membre Discord ${user.discordId}:`,
+        memberError
+      );
+      return false;
+    }
+  } catch (error) {
+    logger.error(
+      `Erreur lors du retrait du rôle de jeu à ${user?.username || "inconnu"}:`,
+      error
+    );
+    return false;
+  }
+}
+
+/**
+ * Synchronise tous les rôles de jeu d'un utilisateur selon ses préférences
+ * @param {Object} user - L'utilisateur avec son profil peuplé
+ * @param {Array} allGames - Liste de tous les jeux disponibles
+ * @returns {Promise<{added: number, removed: number, failed: number}>} Statistiques de l'opération
+ */
+async function syncUserGameRoles(user, allGames) {
+  let added = 0;
+  let removed = 0;
+  let failed = 0;
+
+  try {
+    if (!user || !user.discordId) {
+      logger.warn(`Utilisateur invalide pour la synchronisation des rôles`);
+      return { added: 0, removed: 0, failed: 1 };
+    }
+
+    if (!user.profile || !user.profile.gameRoles) {
+      logger.debug(`Aucun profil de jeu défini pour ${user.username}`);
+      return { added: 0, removed: 0, failed: 0 };
+    }
+
+    logger.info(`🔄 Synchronisation des rôles de jeu pour ${user.username}`);
+
+    const guild = await fetchGuild();
+    if (!guild) {
+      return { added: 0, removed: 0, failed: 1 };
+    }
+
+    // Récupérer le membre Discord
+    let member;
+    try {
+      member = await guild.members.fetch({
+        user: user.discordId,
+        force: true,
+      });
+
+      if (!member) {
+        logger.warn(
+          `Membre Discord non trouvé pour ${user.username} (${user.discordId})`
+        );
+        return { added: 0, removed: 0, failed: 1 };
+      }
+    } catch (memberError) {
+      logger.error(
+        `Erreur lors de la récupération du membre Discord:`,
+        memberError
+      );
+      return { added: 0, removed: 0, failed: 1 };
+    }
+
+    // Créer un map des préférences de jeu de l'utilisateur
+    const userGamePreferences = new Map();
+    for (const gameRole of user.profile.gameRoles) {
+      if (gameRole.gameId && gameRole.gameId._id) {
+        userGamePreferences.set(
+          gameRole.gameId._id.toString(),
+          gameRole.enabled
+        );
+      }
+    }
+
+    // Parcourir tous les jeux disponibles
+    for (const game of allGames) {
+      const gameId = game._id.toString();
+      const userWantsRole = userGamePreferences.get(gameId) === true;
+
+      if (userWantsRole) {
+        // L'utilisateur veut ce rôle
+        const success = await addGameRoleToUser(user, game);
+        success ? added++ : failed++;
+      } else {
+        // L'utilisateur ne veut pas ce rôle (ou n'a pas d'opinion)
+        const success = await removeGameRoleFromUser(user, game);
+        if (success) {
+          // On ne compte comme "removed" que si le rôle existait vraiment
+          const role = guild.roles.cache.find(
+            (r) => r.name === formatGameRoleName(game)
+          );
+          if (role && member.roles.cache.has(role.id)) {
+            removed++;
+          }
+        }
+      }
+    }
+
+    logger.info(
+      `✅ Synchronisation terminée pour ${user.username}: ${added} ajoutés, ${removed} retirés, ${failed} échecs`
+    );
+
+    return { added, removed, failed };
+  } catch (error) {
+    logger.error(
+      `Erreur globale lors de la synchronisation des rôles pour ${user?.username}:`,
+      error
+    );
+    return { added, removed, failed: failed + 1 };
+  }
+}
+
+/**
+ * Nettoie les rôles de jeu inutilisés (sans membres)
+ * @param {Array} allGames - Liste de tous les jeux pour éviter de supprimer les bons rôles
+ * @returns {Promise<number>} Nombre de rôles supprimés
+ */
+async function cleanupUnusedGameRoles(allGames) {
+  try {
+    const guild = await fetchGuild();
+    if (!guild) return 0;
+
+    await guild.roles.fetch(null, { force: true });
+
+    let deletedCount = 0;
+    const gameRoleNames = allGames
+      .map((game) => formatGameRoleName(game))
+      .filter(Boolean);
+
+    for (const [roleId, role] of guild.roles.cache) {
+      // Vérifier si c'est un rôle de jeu (pas de rôle système/admin)
+      if (gameRoleNames.includes(role.name) && role.members.size === 0) {
+        try {
+          await role.delete(`Nettoyage automatique: rôle de jeu sans membres`);
+          logger.info(`🗑️ Rôle inutilisé "${role.name}" supprimé`);
+          deletedCount++;
+        } catch (deleteError) {
+          logger.error(
+            `Erreur lors de la suppression du rôle ${role.name}:`,
+            deleteError
+          );
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      logger.info(
+        `🧹 Nettoyage terminé: ${deletedCount} rôles de jeu inutilisés supprimés`
+      );
+    }
+
+    return deletedCount;
+  } catch (error) {
+    logger.error(`Erreur lors du nettoyage des rôles inutilisés:`, error);
+    return 0;
   }
 }
 
@@ -1395,4 +1767,9 @@ module.exports = {
   sendPropositionEmbed,
   deleteEmbedProposal,
   updateProposalEmbed,
+  addGameRoleToUser,
+  removeGameRoleFromUser,
+  syncUserGameRoles,
+  cleanupUnusedGameRoles,
+  formatGameRoleName,
 };

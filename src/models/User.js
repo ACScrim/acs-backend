@@ -26,6 +26,15 @@ const userSchema = new mongoose.Schema({
   avatarUrl: {
     type: String,
   },
+  profile: {
+    twitchUsername: { type: String, default: null },
+    gameRoles: [
+      {
+        gameId: { type: mongoose.Schema.Types.ObjectId, ref: "Game" },
+        enabled: { type: Boolean, default: false },
+      },
+    ],
+  },
 });
 
 userSchema.pre("save", async function (next) {

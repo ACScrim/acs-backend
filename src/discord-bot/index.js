@@ -1164,7 +1164,7 @@ async function getOrCreateGameRole(game) {
       role = await guild.roles.create({
         name: roleName,
         color: color,
-        hoist: false, // Ne pas séparer dans la liste des membres
+        hoist: true,
         mentionable: true, // Permettre les mentions
         reason: `Rôle automatique pour le jeu ${game.name}`,
       });

@@ -119,6 +119,7 @@ exports.updateUserProfile = async (req, res) => {
     if (!user.profile) {
       user.profile = {
         twitchUsername: null,
+        twitchSubscriptionId: null,
         gameRoles: [],
       };
     }
@@ -139,7 +140,7 @@ exports.updateUserProfile = async (req, res) => {
         });
       }
 
-      addOneTwitchEventSubscription(cleanTwitchUsername, user.profile.twitchSubscriptionId);
+      await addOneTwitchEventSubscription(cleanTwitchUsername, userId, user.profile.twitchSubscriptionId);
 
       user.profile.twitchUsername = cleanTwitchUsername;
     } else {

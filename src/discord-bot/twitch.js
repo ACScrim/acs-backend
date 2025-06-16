@@ -202,7 +202,7 @@ function verifyTwitchSignature(req) {
   }
 }
 
-async function createEventSubSubscription(streamerIdToSubscribe) {
+async function createEventSubSubscription(streamerIdToSubscribe, streamerUsername) {
   if (!twitchAccessToken || !streamerIdToSubscribe) {
     console.error("Impossible de créer l'abonnement EventSub: token ou ID streamer manquant.", { hasToken: !!twitchAccessToken, streamerIdToSubscribe });
     return false;
@@ -234,6 +234,12 @@ async function createEventSubSubscription(streamerIdToSubscribe) {
   try {
     const response = await axios.post(url, data, { headers });
     console.log(`Abonnement EventSub créé/vérifié pour streamer ID ${streamerIdToSubscribe}:`, response.status, response.data?.data[0]?.id);
+    // Mettre à jour l'utilisateur avec le nouvel ID d'abonnement
+    const user = await User.findOneAndUpdate(
+      { 'profile.twitchUsername': streamerUsername },
+      { 'profile.twitchSubscriptionId': response.data.data[0].id },
+      { new: true }
+    ).lean();
     return true;
   } catch (error) {
     console.error(`Erreur lors de la création/vérification de l'abonnement EventSub pour streamer ID ${streamerIdToSubscribe}: ${error.message}`);
@@ -284,6 +290,26 @@ async function deleteAllEventSubSubscriptions() {
   }
 }
 
+async function deleteOneEventSubSubscription(subscriptionId) {
+  if (!twitchAccessToken || !subscriptionId) {
+    console.error("Impossible de supprimer l'abonnement EventSub: token ou ID d'abonnement manquant.");
+    return false;
+  }
+
+  try {
+    const response = await axios.delete(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${subscriptionId}`, {
+      headers: {
+        "Client-ID": TWITCH_CLIENT_ID,
+        "Authorization": `Bearer ${twitchAccessToken}`
+      }
+    });
+    console.log(`Abonnement EventSub ${subscriptionId} supprimé avec succès.`);
+    return true;
+  } catch (error) {
+    console.error(`Erreur lors de la suppression de l'abonnement EventSub ${subscriptionId}: ${error.message}`);
+    return false;
+  }
+}
 
 async function initializeTwitchEventSubscriptions() {
   console.log("Initialisation des abonnements Twitch EventSub...");
@@ -315,7 +341,7 @@ async function initializeTwitchEventSubscriptions() {
       console.log(`Traitement de l'utilisateur avec Twitch: ${user.profile.twitchUsername}`);
       const streamerId = await getStreamerId(user.profile.twitchUsername);
       if (streamerId) {
-        await createEventSubSubscription(streamerId);
+        await createEventSubSubscription(streamerId, user.profile.twitchUsername);
       } else {
         console.warn(`Impossible d'obtenir l'ID Twitch pour ${user.profile.twitchUsername}. Abonnement ignoré.`);
       }
@@ -324,11 +350,35 @@ async function initializeTwitchEventSubscriptions() {
   console.log("Initialisation des abonnements Twitch EventSub terminée.");
 }
 
+async function addOneTwitchEventSubscription(streamerUsername) {
+  if (!streamerUsername || typeof streamerUsername !== 'string' || streamerUsername.trim() === '') {
+    console.error("Nom d'utilisateur Twitch invalide pour l'abonnement.");
+    return false;
+  }
+
+  const existingUser = await User.findOne({ 'profile.twitchUsername': streamerUsername }).lean();
+  if (!existingUser) {
+    console.error(`Aucun utilisateur trouvé avec le nom d'utilisateur Twitch: ${streamerUsername}`);
+    return false;
+  }
+
+  await deleteOneEventSubSubscription(existingUser.profile.twitchSubscriptionId);
+
+  const streamerId = await getStreamerId(streamerUsername);
+  if (!streamerId) {
+    console.error(`Impossible d'obtenir l'ID Twitch pour ${streamerUsername}. Abonnement non créé.`);
+    return false;
+  }
+
+  return await createEventSubSubscription(streamerId, streamerUsername);
+}
+
 module.exports = {
   verifyTwitchSignature,
   sendDiscordNotification,
   initializeTwitchEventSubscriptions,
-  getStreamInfoByUserId
+  getStreamInfoByUserId,
+  addOneTwitchEventSubscription
   // Exposez d'autres fonctions si nécessaire, par exemple pour des commandes manuelles
   // getTwitchAccessToken,
   // createEventSubSubscription,

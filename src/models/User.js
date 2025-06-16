@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema({
   },
   profile: {
     twitchUsername: { type: String, default: null },
+    twitchSubscriptionId: { type: String, default: null },
     gameRoles: [
       {
         gameId: { type: mongoose.Schema.Types.ObjectId, ref: "Game" },

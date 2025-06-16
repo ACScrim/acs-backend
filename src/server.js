@@ -16,6 +16,7 @@ const seasonRoutes = require("./routes/seasonRoutes");
 const playerGameLevelRoutes = require("./routes/playerGameLevelRoutes");
 const twitchRoutes = require("./routes/twitchRoutes");
 const { initializeTwitchEventSubscriptions } = require("./discord-bot/twitch");
+const streamRoutes = require("./routes/streamRoutes");
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -55,16 +56,21 @@ if (process.env.TRUST_PROXY === "true") {
 }
 
 // Middleware
-app.use(express.json({
-  verify: (req, res, buf, encoding) => {
-    try {
-      req.rawBody = buf.toString(encoding || 'utf8');
-    } catch (e) {
-      console.error("Erreur lors de la conversion du buffer rawBody en string:", e);
-      req.rawBody = ''; // fallback
-    }
-  }
-}));
+app.use(
+  express.json({
+    verify: (req, res, buf, encoding) => {
+      try {
+        req.rawBody = buf.toString(encoding || "utf8");
+      } catch (e) {
+        console.error(
+          "Erreur lors de la conversion du buffer rawBody en string:",
+          e
+        );
+        req.rawBody = ""; // fallback
+      }
+    },
+  })
+);
 app.use(cookieParser());
 app.use(helmet());
 
@@ -138,6 +144,7 @@ app.use("/api/game-proposals", gameProposalRoutes);
 app.use("/api/seasons", seasonRoutes);
 app.use("/api/player-levels", playerGameLevelRoutes);
 app.use("/api/twitch", twitchRoutes);
+app.use("/api/streams", streamRoutes);
 
 // Middleware pour les erreurs globales
 app.use((err, req, res, next) => {
@@ -152,9 +159,12 @@ mongoose
     w: "majority",
   })
   .then(() => {
-    logger.info("Connected to MongoDB")
-    initializeTwitchEventSubscriptions().catch(err => {
-      logger.error("Échec de l'initialisation des abonnements Twitch EventSub:", err);
+    logger.info("Connected to MongoDB");
+    initializeTwitchEventSubscriptions().catch((err) => {
+      logger.error(
+        "Échec de l'initialisation des abonnements Twitch EventSub:",
+        err
+      );
     });
   })
   .catch((err) => logger.error("Could not connect to MongoDB", err));

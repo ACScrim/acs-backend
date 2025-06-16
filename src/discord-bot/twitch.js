@@ -350,19 +350,15 @@ async function initializeTwitchEventSubscriptions() {
   console.log("Initialisation des abonnements Twitch EventSub terminée.");
 }
 
-async function addOneTwitchEventSubscription(streamerUsername) {
+async function addOneTwitchEventSubscription(streamerUsername, oldSubscriptionId = null) {
   if (!streamerUsername || typeof streamerUsername !== 'string' || streamerUsername.trim() === '') {
     console.error("Nom d'utilisateur Twitch invalide pour l'abonnement.");
     return false;
   }
 
-  const existingUser = await User.findOne({ 'profile.twitchUsername': streamerUsername }).lean();
-  if (!existingUser) {
-    console.error(`Aucun utilisateur trouvé avec le nom d'utilisateur Twitch: ${streamerUsername}`);
-    return false;
+  if (oldSubscriptionId && typeof oldSubscriptionId !== 'string') {
+    await deleteOneEventSubSubscription(oldSubscriptionId);
   }
-
-  await deleteOneEventSubSubscription(existingUser.profile.twitchSubscriptionId);
 
   const streamerId = await getStreamerId(streamerUsername);
   if (!streamerId) {

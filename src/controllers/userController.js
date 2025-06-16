@@ -139,7 +139,7 @@ exports.updateUserProfile = async (req, res) => {
         });
       }
 
-      addOneTwitchEventSubscription(cleanTwitchUsername);
+      addOneTwitchEventSubscription(cleanTwitchUsername, user.profile.twitchSubscriptionId);
 
       user.profile.twitchUsername = cleanTwitchUsername;
     } else {

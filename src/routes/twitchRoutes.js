@@ -47,31 +47,31 @@ router.post('/twitch-webhook', async (req, res) => {
   const messageType = req.header('Twitch-Eventsub-Message-Type');
   const messageId = req.header('Twitch-Eventsub-Message-Id'); // Pour le logging
 
-  logger.log(`Webhook Twitch reçu - Type: ${messageType}, ID: ${messageId}`);
+  logger.info(`Webhook Twitch reçu - Type: ${messageType}, ID: ${messageId}`);
 
   switch (messageType) {
     case 'webhook_callback_verification':
       const challengeBody = req.body; // req.body est déjà parsé en JSON par express.json()
-      logger.log(`Challenge reçu pour EventSub ID: ${challengeBody.subscription.id}. Challenge: ${challengeBody.challenge}`);
+      logger.info(`Challenge reçu pour EventSub ID: ${challengeBody.subscription.id}. Challenge: ${challengeBody.challenge}`);
       // Renvoyer le 'challenge' tel quel, avec Content-Type text/plain
       return res.status(200).type('text/plain').send(challengeBody.challenge);
 
     case 'notification':
       const notificationBody = req.body;
-      logger.log(`Notification reçue: Subscription Type: ${notificationBody.subscription.type}, Streamer ID: ${notificationBody.event?.broadcaster_user_id}`);
+      logger.info(`Notification reçue: Subscription Type: ${notificationBody.subscription.type}, Streamer ID: ${notificationBody.event?.broadcaster_user_id}`);
 
       if (notificationBody.subscription.type === 'stream.online') {
         const eventData = notificationBody.event;
         const streamerUsername = eventData.broadcaster_user_name;
         const streamerId = eventData.broadcaster_user_id;
 
-        logger.log(`Streamer ${streamerUsername} (ID: ${streamerId}) est en ligne ! Event data:`, eventData);
+        logger.info(`Streamer ${streamerUsername} (ID: ${streamerId}) est en ligne ! Event data:`, eventData);
 
         // Récupérer les détails du stream (titre, jeu)
         const streamDetails = await getStreamInfoByUserId(streamerId);
 
         if (streamDetails) {
-          logger.log(`Détails du stream pour ${streamerUsername}: Titre: ${streamDetails.title}, Jeu: ${streamDetails.game_name}`);
+          logger.info(`Détails du stream pour ${streamerUsername}: Titre: ${streamDetails.title}, Jeu: ${streamDetails.game_name}`);
         } else {
           logger.warn(`Impossible de récupérer les détails du stream pour ${streamerUsername}. Notification envoyée sans ces détails.`);
         }
@@ -90,7 +90,7 @@ router.post('/twitch-webhook', async (req, res) => {
       return res.status(200).send('Subscription revoked');
 
     default:
-      logger.log(`Type de message EventSub inconnu: ${messageType}`);
+      logger.info(`Type de message EventSub inconnu: ${messageType}`);
       return res.status(200).send('Unknown message type');
   }
 });

@@ -2,6 +2,7 @@ const User = require("../models/User");
 const Player = require("../models/Player");
 const Game = require("../models/Game");
 const discordBot = require("../discord-bot/index");
+const { addOneTwitchEventSubscription } = require("../discord-bot/twitch");
 
 exports.getUserById = async (req, res) => {
   try {
@@ -137,6 +138,8 @@ exports.updateUserProfile = async (req, res) => {
           message: "Ce nom Twitch est déjà utilisé par un autre utilisateur",
         });
       }
+
+      addOneTwitchEventSubscription(cleanTwitchUsername);
 
       user.profile.twitchUsername = cleanTwitchUsername;
     } else {

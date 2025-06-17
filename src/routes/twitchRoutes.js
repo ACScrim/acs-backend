@@ -76,7 +76,7 @@ router.post('/twitch-webhook', async (req, res) => {
           logger.warn(`Impossible de récupérer les détails du stream pour ${streamerUsername}. Notification envoyée sans ces détails.`);
         }
         
-        const message = `🔔 @everyone ${streamerUsername} est en live !`;
+        const message = `🔔 ${streamerUsername} est en live !`;
         // streamDetails peut être null, sendDiscordNotification doit pouvoir le gérer
         await sendDiscordNotification(message, streamDetails, streamerUsername);
       }

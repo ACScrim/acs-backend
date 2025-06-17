@@ -2,7 +2,7 @@ const User = require("../models/User");
 const Player = require("../models/Player");
 const Game = require("../models/Game");
 const discordBot = require("../discord-bot/index");
-const { addOneTwitchEventSubscription } = require("../discord-bot/twitch");
+const { addOneTwitchEventSubscription, deleteOneEventSubSubscription } = require("../discord-bot/twitch");
 
 exports.getUserById = async (req, res) => {
   try {
@@ -144,6 +144,7 @@ exports.updateUserProfile = async (req, res) => {
 
       user.profile.twitchUsername = cleanTwitchUsername;
     } else {
+      await deleteOneEventSubSubscription(user.profile.twitchSubscriptionId);
       user.profile.twitchUsername = null;
     }
 

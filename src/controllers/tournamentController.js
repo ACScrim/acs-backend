@@ -9,7 +9,7 @@ const {
   syncTournamentRoles,
   deleteTournamentRole,
 } = require("../discord-bot/index.js");
-const { updateSignupMessages } = require("../services/schedulerService");
+//const { updateSignupMessages } = require("../services/schedulerService");
 const winston = require("winston");
 
 // Utiliser le logger existant ou en créer un nouveau
@@ -92,9 +92,42 @@ exports.createTournament = async (req, res) => {
       ).populate("game players");
       await syncTournamentRoles(populatedTournament);
     }
-
     await newTournament.save();
-    await updateSignupMessages();
+
+    // Envoyer une notification push pour le nouveau tournoi
+    try {
+      const populatedTournament = await Tournament.findById(
+        newTournament._id
+      ).populate("game");
+      const notificationPayload = {
+        title: "🎮 Nouveau tournoi créé !",
+        body: `${populatedTournament.name} - ${populatedTournament.game.name}`,
+        icon: "/Logo_ACS.png",
+        badge: "/Logo_ACS.png",
+        tag: `tournament-${newTournament._id}`,
+        data: {
+          type: "tournament",
+          tournamentId: newTournament._id.toString(),
+          url: `/tournois/${newTournament._id}`,
+        },
+      };      // Envoyer la notification à tous les utilisateurs abonnés
+      const notificationService = require("../services/notificationService");
+      await notificationService.sendToAllSubscribers(notificationPayload, {
+        type: "tournament",
+      });
+
+      logger.info(
+        `Notification envoyée pour le nouveau tournoi: ${populatedTournament.name}`
+      );
+    } catch (notifError) {
+      logger.error(
+        "Erreur lors de l'envoi de la notification pour le nouveau tournoi:",
+        notifError
+      );
+      // Ne pas faire échouer la création du tournoi si la notification échoue
+    }
+
+    //await updateSignupMessages();
     res.status(201).json(newTournament);
   } catch (error) {
     res

@@ -10,12 +10,12 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const winston = require("winston");
 const discordbot = require("./discord-bot/index.js");
-const { startScheduler } = require("./services/schedulerService");
+//const { startScheduler } = require("./services/schedulerService");
 const gameProposalRoutes = require("./routes/gameProposalRoutes");
 const seasonRoutes = require("./routes/seasonRoutes");
 const playerGameLevelRoutes = require("./routes/playerGameLevelRoutes");
 const twitchRoutes = require("./routes/twitchRoutes");
-const { initializeTwitchEventSubscriptions } = require("./discord-bot/twitch");
+// const { initializeTwitchEventSubscriptions } = require("./discord-bot/twitch");
 const streamRoutes = require("./routes/streamRoutes");
 
 // Charger les variables d'environnement
@@ -133,6 +133,7 @@ const tournamentRoutes = require("./routes/tournamentRoutes");
 const gameRoutes = require("./routes/gameRoutes");
 const userRoutes = require("./routes/userRoutes");
 const badgeRoutes = require("./routes/badgeRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/players", playerRoutes);
@@ -140,6 +141,7 @@ app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/games", gameRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/badges", badgeRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/game-proposals", gameProposalRoutes);
 app.use("/api/seasons", seasonRoutes);
 app.use("/api/player-levels", playerGameLevelRoutes);
@@ -160,12 +162,12 @@ mongoose
   })
   .then(() => {
     logger.info("Connected to MongoDB");
-    initializeTwitchEventSubscriptions().catch((err) => {
-      logger.error(
-        "Échec de l'initialisation des abonnements Twitch EventSub:",
-        err
-      );
-    });
+    // initializeTwitchEventSubscriptions().catch((err) => {
+    //   logger.error(
+    //     "Échec de l'initialisation des abonnements Twitch EventSub:",
+    //     err
+    //   );
+    // });
   })
   .catch((err) => logger.error("Could not connect to MongoDB", err));
 
@@ -180,7 +182,7 @@ process.on("unhandledRejection", (err) => {
   process.exit(1);
 });
 
-startScheduler();
+//startScheduler();
 
 // Démarrer le serveur
 app.listen(PORT, () => {

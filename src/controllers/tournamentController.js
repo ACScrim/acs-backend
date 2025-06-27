@@ -90,6 +90,7 @@ exports.createTournament = async (req, res) => {
       const populatedTournament = await Tournament.findById(
         newTournament._id
       ).populate("game players");
+      // Commenter pour le dev
       await syncTournamentRoles(populatedTournament);
     }
     await newTournament.save();
@@ -113,7 +114,7 @@ exports.createTournament = async (req, res) => {
       };      // Envoyer la notification à tous les utilisateurs abonnés
       const notificationService = require("../services/notificationService");
       await notificationService.sendToAllSubscribers(notificationPayload, {
-        type: "tournament",
+        type: "tournaments",
       });
 
       logger.info(
@@ -130,6 +131,7 @@ exports.createTournament = async (req, res) => {
     //await updateSignupMessages();
     res.status(201).json(newTournament);
   } catch (error) {
+    console.log("Erreur lors de la création du tournoi:", error);
     res
       .status(500)
       .json({ message: "Erreur lors de la création du tournoi", error });

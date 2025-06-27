@@ -15,6 +15,12 @@ class NotificationService {
         "⚠️  Clés VAPID non configurées. Les notifications push ne fonctionneront pas."
       );
     }
+
+    // Lier les méthodes pour éviter les problèmes de contexte
+    this.notifyTournamentReminder = this.notifyTournamentReminder.bind(this);
+    this.sendToUsers = this.sendToUsers.bind(this);
+    this.sendToUser = this.sendToUser.bind(this);
+    this.sendNotification = this.sendNotification.bind(this);
   }
 
   /**
@@ -53,6 +59,7 @@ class NotificationService {
         userId: { $in: userIds },
         isActive: true,
       });
+
 
       const promises = subscriptions.map((sub) =>
         this.sendNotification(sub.subscription, payload).catch((err) => {
@@ -188,15 +195,15 @@ class NotificationService {
   /**
    * Notification de rappel de tournoi
    */
-  async notifyTournamentReminder(tournament, participants) {
+  async notifyTournamentReminder(tournament, users) {
     const payload = {
-      title: "⏰ Rappel de tournoi",
-      body: `${tournament.name} commence dans 1 heure !`,
+      title: `⏰ Rappel de check-in pour ${tournament.name}`,
+      body: `${tournament.name} commence dans 24 heures !`,
       icon: "/Logo_ACS.png",
       badge: "/Logo_ACS.png",
       tag: `reminder-${tournament._id}`,
       data: {
-        type: "reminder",
+        type: "reminders",
         tournamentId: tournament._id,
         url: `/tournois/${tournament._id}`,
       },
@@ -209,9 +216,20 @@ class NotificationService {
       ],
     };
 
-    // Envoyer uniquement aux participants
-    const participantIds = participants.map((p) => p.playerId);
-    return await this.sendToUsers(participantIds, payload);
+    const participantIds = users.map((u) => u.toString());
+
+    if (participantIds.length === 0) {
+      console.warn("⚠️ Aucun participant trouvé !");
+      return [];
+    }
+
+    try {
+      const result = await this.sendToUsers(participantIds, payload);
+      return result;
+    } catch (error) {
+      console.error("❌ ERREUR dans notifyTournamentReminder:", error);
+      throw error;
+    }
   }
 
   /**

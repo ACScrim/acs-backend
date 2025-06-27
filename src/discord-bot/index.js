@@ -13,6 +13,7 @@
 // const Player = require("../models/Player");
 // const GameProposal = require("../models/GameProposal");
 // const User = require("../models/User");
+// const { notifyTournamentReminder } = require("../services/notificationService");
 
 // // Configuration initiale et variables d'environnement
 // const token = process.env.DISCORD_TOKEN;
@@ -551,6 +552,13 @@
 //         content: `${mentionText} N'oubliez pas de faire votre check-in pour ce tournoi !\nRendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
 //         embeds: [embed],
 //       });
+
+//       const tournamentWithPlayers = await tournament.populate('players');
+
+//       await notifyTournamentReminder(
+//         tournament,
+//         tournamentWithPlayers.players.map((p) => p.userId)
+//       )
 
 //       logger.info(
 //         `✅ Notification envoyée avec succès pour le tournoi "${tournament.name}" dans #${targetChannel.name}`

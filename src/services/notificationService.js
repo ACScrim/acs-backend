@@ -26,6 +26,7 @@ class NotificationService {
     this.notifySystem = this.notifySystem.bind(this);
     this.removeExpiredSubscription = this.removeExpiredSubscription.bind(this);
     this.sendToAllSubscribers = this.sendToAllSubscribers.bind(this);
+    this.notifyWinningTeam = this.notifyWinningTeam.bind(this);
   }
 
   /**
@@ -274,6 +275,25 @@ class NotificationService {
     };
 
     return await this.sendToAllSubscribers(payload, { type: "system" });
+  }
+
+  async notifyWinningTeam(tournament, team) {
+    const payload = {
+      title: `🏆 Victoire pour ${team.name} !`,
+      body: `${team.name} a remporté le tournoi ${tournament.name}`,
+      icon: "/Logo_ACS.png",
+      badge: "/Logo_ACS.png",
+      tag: `tournament-${tournament._id}-winner`,
+      data: {
+        type: "tournaments",
+        tournamentId: tournament._id,
+        teamId: team._id,
+        url: `/tournois/${tournament._id}`,
+      },
+    };
+
+    // Envoi de la notification à tous les abonnés
+    return await this.sendToAllSubscribers(payload, { type: "tournaments" });
   }
 }
 

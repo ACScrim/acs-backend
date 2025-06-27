@@ -494,6 +494,11 @@ exports.finishTournament = async (req, res) => {
       return res.status(404).json({ message: "Tournoi non trouvé" });
     }
 
+    const winningTeam = tournament.teams.find((team) => team.ranking === 1);
+
+    const notificationService = require("../services/notificationService");
+    notificationService.notifyWinningTeam(tournament, winningTeam);
+
     tournament.finished = true;
     await tournament.save();
 
@@ -525,6 +530,11 @@ exports.markTournamentAsFinished = async (req, res) => {
           "Impossible de terminer le tournoi : aucune équipe n'a de classement défini",
       });
     }
+
+    const winningTeam = tournament.teams.find((team) => team.ranking === 1);
+
+    const notificationService = require("../services/notificationService");
+    notificationService.notifyWinningTeam(tournament, winningTeam);
 
     tournament.finished = true;
     await tournament.save();

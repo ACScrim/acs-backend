@@ -21,6 +21,11 @@ class NotificationService {
     this.sendToUsers = this.sendToUsers.bind(this);
     this.sendToUser = this.sendToUser.bind(this);
     this.sendNotification = this.sendNotification.bind(this);
+    this.notifyNewBadge = this.notifyNewBadge.bind(this);
+    this.notifyNewTournament = this.notifyNewTournament.bind(this);
+    this.notifySystem = this.notifySystem.bind(this);
+    this.removeExpiredSubscription = this.removeExpiredSubscription.bind(this);
+    this.sendToAllSubscribers = this.sendToAllSubscribers.bind(this);
   }
 
   /**

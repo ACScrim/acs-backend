@@ -1,6 +1,7 @@
 const Badge = require("../models/Badge");
 const Player = require("../models/Player");
 const mongoose = require("mongoose");
+const { notifyNewBadge } = require("../services/notificationService");
 
 exports.createBadge = async (req, res) => {
   try {
@@ -66,6 +67,9 @@ exports.assignBadgeToPlayer = async (req, res) => {
 
     player.badges.push(badgeId);
     await player.save();
+
+    notifyNewBadge(player.userId.toString(), badge);
+
     res.status(200).json({ message: "Badge associé au joueur avec succès" });
   } catch (error) {
     console.error("Erreur lors de l'association du badge:", error);

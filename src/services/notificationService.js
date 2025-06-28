@@ -1,5 +1,6 @@
 const webpush = require("web-push");
 const NotificationSubscription = require("../models/NotificationSubscription");
+const Notification = require("../models/Notification");
 
 class NotificationService {
   constructor() {
@@ -46,7 +47,24 @@ class NotificationService {
         return null;
       }
 
-      return await this.sendNotification(subscription.subscription, payload);
+      const notificationResponse = await this.sendNotification(subscription.subscription, payload);
+
+      const notification = new Notification({
+        users: [userId],
+        title: payload.title,
+        body: payload.body,
+        tag: payload.tag || "system-notification",
+        url: payload.data.url || "/",
+        type: payload.data.type || "system",
+        icon: "/Logo_ACS.png",
+        badge: "/Logo_ACS.png",
+        totalSent: notificationResponse.statusCode === 201 ? 1 : 0,
+        totalClicks: 0, // Initialisé à 0, peut être mis à jour plus tard
+        totalErrors: notificationResponse.statusCode !== 201 ? 1 : 0,
+      });
+      notification.save();
+
+      return notificationResponse;
     } catch (error) {
       console.error(
         "Erreur lors de l'envoi de la notification à l'utilisateur:",
@@ -74,7 +92,23 @@ class NotificationService {
         })
       );
 
-      return await Promise.allSettled(promises);
+      const results = await Promise.allSettled(promises);
+      const notification = new Notification({
+        users: subscriptions.map(sub => sub.userId),
+        title: payload.title,
+        body: payload.body,
+        tag: payload.tag || "system-notification",
+        url: payload.data.url || "/",
+        type: payload.data.type || "system",
+        icon: "/Logo_ACS.png",
+        badge: "/Logo_ACS.png",
+        totalSent: results.filter(r => r.status === "fulfilled").length,
+        totalClicks: 0, // Initialisé à 0, peut être mis à jour plus tard
+        totalErrors: results.filter(r => r.status === "rejected").length
+      });
+      notification.save();
+
+      return results;
     } catch (error) {
       console.error(
         "Erreur lors de l'envoi de notifications multiples:",
@@ -119,7 +153,22 @@ class NotificationService {
         `✅ ${successful} notifications envoyées avec succès, ${failed} échecs`
       );
 
-      return { successful, failed, total: results.length };
+      const notification = new Notification({
+        users: subscriptions.map(sub => sub.userId),
+        title: payload.title,
+        body: payload.body,
+        tag: payload.tag || "system-notification",
+        url: payload.data.url || "/",
+        type: payload.data.type || "system",
+        icon: "/Logo_ACS.png",
+        badge: "/Logo_ACS.png",
+        totalSent: successful,
+        totalClicks: 0, // Initialisé à 0, peut être mis à jour plus tard
+        totalErrors: failed
+      });
+      notification.save();
+
+      return { successful, failed, total: results.length, subscriptions };
     } catch (error) {
       console.error("Erreur lors de l'envoi de notifications globales:", error);
       throw error;
@@ -135,6 +184,7 @@ class NotificationService {
         subscription,
         JSON.stringify(payload)
       );
+      
       return result;
     } catch (error) {
       // Gérer les abonnements expirés
@@ -178,7 +228,7 @@ class NotificationService {
       badge: "/Logo_ACS.png",
       tag: `tournament-${tournament._id}`,
       data: {
-        type: "tournament",
+        type: "tournaments",
         tournamentId: tournament._id,
         url: "/tournois-a-venir",
       },
@@ -261,9 +311,9 @@ class NotificationService {
   /**
    * Notification système
    */
-  async notifySystem(message, data = {}) {
+  async notifySystem(title, message, data = {}) {
     const payload = {
-      title: "🔔 Notification système",
+      title: title || "🔔 Notification système",
       body: message,
       icon: "/Logo_ACS.png",
       badge: "/Logo_ACS.png",

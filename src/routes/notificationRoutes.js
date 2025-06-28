@@ -3,6 +3,19 @@ const router = express.Router();
 const NotificationSubscription = require("../models/NotificationSubscription");
 const notificationService = require("../services/notificationService");
 const { protect, admin } = require("../middleware/authMiddleware");
+const Notification = require("../models/Notification");
+
+router.get('/', [protect, admin], async (req, res) => {
+  try {
+    const notifications = await Notification.find().sort({ createdAt: -1 });
+    res.json(notifications);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des notifications:", error);
+    res.status(500).json({
+      message: "Erreur serveur lors de la récupération des notifications",
+    });
+  }
+});
 
 /**
  * @route POST /api/notifications/subscribe
@@ -210,6 +223,22 @@ router.get("/vapid-key", (req, res) => {
  * @desc Statistiques d'abonnements (admin seulement)
  * @access Private (Admin)
  */
+
+/**
+  total: 156,
+  totalThisWeek: 23,
+  subscribedUsers: 89,
+  newSubscribersThisWeek: 7,
+  deliveryRate: 94,
+  topType: 'Tournois',
+  topTypeCount: 45,
+  byType: {
+    tournaments: 45,
+    badges: 32,
+    reminders: 28,
+    system: 51,
+  },
+ */
 router.get("/admin/stats", admin, async (req, res) => {
   try {
     // Vérifier si l'utilisateur est admin
@@ -217,28 +246,97 @@ router.get("/admin/stats", admin, async (req, res) => {
       return res.status(403).json({ message: "Accès refusé" });
     }
 
-    const stats = await NotificationSubscription.aggregate([
+    const subscriptionStats = await NotificationSubscription.aggregate([
       {
         $group: {
           _id: null,
-          totalSubscriptions: { $sum: 1 },
           activeSubscriptions: {
             $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] },
           },
-          inactiveSubscriptions: {
-            $sum: { $cond: [{ $eq: ["$isActive", false] }, 1, 0] },
+          newActiveSubscriptionsThisWeek: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$isActive", true] },
+                    { $gte: ["$createdAt", new Date(new Date().setDate(new Date().getDate() - 7))] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
         },
       },
     ]);
 
-    res.json(
-      stats[0] || {
-        totalSubscriptions: 0,
-        activeSubscriptions: 0,
-        inactiveSubscriptions: 0,
+    const notificationStats = await Notification.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalSent: { $sum: "$totalSent" },
+          totalThisWeek: {
+            $sum: {
+              $cond: [
+                { $gte: ["$createdAt", new Date(new Date().setDate(new Date().getDate() - 7))] },
+                "$totalSent",
+                0,
+              ],
+            },
+          },
+          totalNotifications: { $sum: 1 },
+        },
       }
-    );
+    ]);
+
+    const notificationsByType = await Notification.aggregate([
+      {
+        $group: {
+          _id: "$type",
+          count: { $sum: 1 },
+          totalSent: { $sum: "$totalSent" }
+        }
+      }
+    ]);
+
+    const byType = {};
+    notificationsByType.forEach(item => {
+      if (item._id) {
+        byType[item._id] = item.count;
+      }
+    });
+
+    // Trouver le type le plus populaire
+    let topType = 'system';
+    let topTypeCount = 0;
+    
+    Object.entries(byType).forEach(([type, count]) => {
+      if (count > topTypeCount) {
+        topTypeCount = count;
+        topType = type;
+      }
+    });
+
+    const totalSent = notificationStats[0]?.totalSent || 0;
+    const totalNotifications = notificationStats[0]?.totalNotifications || 0;
+    const deliveryRate = totalNotifications > 0 ? Math.round((totalSent / totalNotifications) * 100) : 0;
+
+    res.json({
+      total: totalSent, // Nombre de notifications envoyées
+      totalThisWeek: notificationStats[0]?.totalThisWeek || 0, // Nombre de notifications envoyées cette semaine
+      subscribedUsers: subscriptionStats[0]?.activeSubscriptions || 0, // Nombre d'utilisateurs abonnés
+      newSubscribersThisWeek: subscriptionStats[0]?.newActiveSubscriptionsThisWeek || 0, // Nombre de nouveaux abonnés cette semaine
+      deliveryRate: deliveryRate || 0, // Taux de livraison des notifications (en pourcentage)
+      topType, // Type de notification le plus fréquent
+      topTypeCount, // Nombre de notifications du type le plus fréquent
+      byType: { // Statistiques par type de notification
+        tournaments: byType.tournaments || 0,
+        badges: byType.badges || 0,
+        reminders: byType.reminders || 0,
+        system: byType.system || 0,
+      },
+    });
   } catch (error) {
     console.error("Erreur lors de la récupération des statistiques:", error);
     res.status(500).json({
@@ -259,7 +357,7 @@ router.post("/admin/broadcast", admin, async (req, res) => {
       return res.status(403).json({ message: "Accès refusé" });
     }
 
-    const { title, body, url, type = "system" } = req.body;
+    const { title, body, tag } = req.body;
 
     if (!title || !body) {
       return res.status(400).json({
@@ -272,15 +370,15 @@ router.post("/admin/broadcast", admin, async (req, res) => {
       body,
       icon: "/Logo_ACS.png",
       badge: "/Logo_ACS.png",
-      tag: "admin-broadcast",
+      tag,
       data: {
-        type,
-        url: url || "/",
+        type: "system",
+        url: "/",
       },
     };
 
     const result = await notificationService.sendToAllSubscribers(payload, {
-      type,
+      type: "system",
     });
 
     res.json({

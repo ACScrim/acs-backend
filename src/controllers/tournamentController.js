@@ -11,6 +11,7 @@ const {
 } = require("../discord-bot/index.js");
 //const { updateSignupMessages } = require("../services/schedulerService");
 const winston = require("winston");
+const notificationService = require("../services/notificationService");
 
 // Utiliser le logger existant ou en créer un nouveau
 const logger = winston.createLogger({
@@ -100,22 +101,8 @@ exports.createTournament = async (req, res) => {
       const populatedTournament = await Tournament.findById(
         newTournament._id
       ).populate("game");
-      const notificationPayload = {
-        title: "🎮 Nouveau tournoi créé !",
-        body: `${populatedTournament.name} - ${populatedTournament.game.name}`,
-        icon: "/Logo_ACS.png",
-        badge: "/Logo_ACS.png",
-        tag: `tournament-${newTournament._id}`,
-        data: {
-          type: "tournament",
-          tournamentId: newTournament._id.toString(),
-          url: `/tournois/${newTournament._id}`,
-        },
-      };      // Envoyer la notification à tous les utilisateurs abonnés
-      const notificationService = require("../services/notificationService");
-      await notificationService.sendToAllSubscribers(notificationPayload, {
-        type: "tournaments",
-      });
+
+      await notificationService.notifyNewTournament(populatedTournament);
 
       logger.info(
         `Notification envoyée pour le nouveau tournoi: ${populatedTournament.name}`

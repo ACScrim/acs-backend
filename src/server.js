@@ -134,6 +134,7 @@ const gameRoutes = require("./routes/gameRoutes");
 const userRoutes = require("./routes/userRoutes");
 const badgeRoutes = require("./routes/badgeRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const notificationSubscriptionRoutes = require("./routes/notificationSubscriptionRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/players", playerRoutes);
@@ -147,6 +148,7 @@ app.use("/api/seasons", seasonRoutes);
 app.use("/api/player-levels", playerGameLevelRoutes);
 app.use("/api/twitch", twitchRoutes);
 app.use("/api/streams", streamRoutes);
+app.use("/api/notifications-subscriptions", notificationSubscriptionRoutes);
 
 // Middleware pour les erreurs globales
 app.use((err, req, res, next) => {

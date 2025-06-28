@@ -47,8 +47,6 @@ class NotificationService {
         return null;
       }
 
-      const notificationResponse = await this.sendNotification(subscription.subscription, payload);
-
       const notification = new Notification({
         users: [userId],
         title: payload.title,
@@ -58,10 +56,16 @@ class NotificationService {
         type: payload.data.type || "system",
         icon: "/Logo_ACS.png",
         badge: "/Logo_ACS.png",
-        totalSent: notificationResponse.statusCode === 201 ? 1 : 0,
+        totalSent: 0,
         totalClicks: 0, // Initialisé à 0, peut être mis à jour plus tard
-        totalErrors: notificationResponse.statusCode !== 201 ? 1 : 0,
+        totalErrors: 0,
       });
+      notification.save();
+
+      const notificationResponse = await this.sendNotification(subscription.subscription, {...payload, data: { ...payload.data, notificationId: notification.id }});
+
+      notification.totalSent = notificationResponse.statusCode === 201 ? 1 : 0;
+      notification.totalErrors = notificationResponse.statusCode !== 201 ? 1 : 0;
       notification.save();
 
       return notificationResponse;
@@ -84,15 +88,6 @@ class NotificationService {
         isActive: true,
       });
 
-
-      const promises = subscriptions.map((sub) =>
-        this.sendNotification(sub.subscription, payload).catch((err) => {
-          console.error(`Erreur envoi notification à ${sub.userId}:`, err);
-          return { error: err, userId: sub.userId };
-        })
-      );
-
-      const results = await Promise.allSettled(promises);
       const notification = new Notification({
         users: subscriptions.map(sub => sub.userId),
         title: payload.title,
@@ -102,11 +97,26 @@ class NotificationService {
         type: payload.data.type || "system",
         icon: "/Logo_ACS.png",
         badge: "/Logo_ACS.png",
-        totalSent: results.filter(r => r.status === "fulfilled").length,
+        totalSent: 0,
         totalClicks: 0, // Initialisé à 0, peut être mis à jour plus tard
-        totalErrors: results.filter(r => r.status === "rejected").length
+        totalErrors: 0
       });
       notification.save();
+
+
+      const promises = subscriptions.map((sub) =>
+        this.sendNotification(sub.subscription, {...payload, data: { ...payload.data, notificationId: notification.id }}).catch((err) => {
+          console.error(`Erreur envoi notification à ${sub.userId}:`, err);
+          return { error: err, userId: sub.userId };
+        })
+      );
+
+      const results = await Promise.allSettled(promises);
+
+      notification.totalSent = results.filter(r => r.status === "fulfilled").length
+      notification.totalErrors = results.filter(r => r.status === "rejected").length
+      notification.save();
+      
 
       return results;
     } catch (error) {
@@ -134,8 +144,23 @@ class NotificationService {
 
       console.log(`📢 Envoi de notification à ${subscriptions.length} abonnés`);
 
+      const notification = new Notification({
+        users: subscriptions.map(sub => sub.userId),
+        title: payload.title,
+        body: payload.body,
+        tag: payload.tag || "system-notification",
+        url: payload.data.url || "/",
+        type: payload.data.type || "system",
+        icon: "/Logo_ACS.png",
+        badge: "/Logo_ACS.png",
+        totalSent: 0,
+        totalClicks: 0,
+        totalErrors: 0
+      });
+      notification.save();
+
       const promises = subscriptions.map((sub) =>
-        this.sendNotification(sub.subscription, payload).catch((err) => {
+        this.sendNotification(sub.subscription, {...payload, data: { ...payload.data, notificationId: notification.id }}).catch((err) => {
           console.error(`Erreur envoi notification à ${sub.userId}:`, err);
           return { error: err, userId: sub.userId };
         })
@@ -149,24 +174,13 @@ class NotificationService {
       ).length;
       const failed = results.length - successful;
 
+      notification.totalSent = successful;
+      notification.totalErrors = failed;
+      notification.save();
+
       console.log(
         `✅ ${successful} notifications envoyées avec succès, ${failed} échecs`
       );
-
-      const notification = new Notification({
-        users: subscriptions.map(sub => sub.userId),
-        title: payload.title,
-        body: payload.body,
-        tag: payload.tag || "system-notification",
-        url: payload.data.url || "/",
-        type: payload.data.type || "system",
-        icon: "/Logo_ACS.png",
-        badge: "/Logo_ACS.png",
-        totalSent: successful,
-        totalClicks: 0, // Initialisé à 0, peut être mis à jour plus tard
-        totalErrors: failed
-      });
-      notification.save();
 
       return { successful, failed, total: results.length, subscriptions };
     } catch (error) {
@@ -230,7 +244,7 @@ class NotificationService {
       data: {
         type: "tournaments",
         tournamentId: tournament._id,
-        url: "/tournois-a-venir",
+        url: "/tournois-a-venir"
       },
       actions: [
         {

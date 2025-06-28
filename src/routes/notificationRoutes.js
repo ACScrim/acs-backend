@@ -217,27 +217,35 @@ router.get("/vapid-key", (req, res) => {
   });
 });
 
+router.post("/:notificationId/click", protect, async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const notification = await Notification.findById(notificationId);
+    if (!notification) {
+      return res.status(404).json({
+        message: "Notification non trouvée",
+      });
+    }
+    // Incrémenter le compteur de clics
+    notification.totalClicks = (notification.totalClicks || 0) + 1;
+    await notification.save();
+    res.status(200).json({
+      message: "Clic enregistré",
+      totalClicks: notification.totalClicks,
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement du clic sur la notification:", error);
+    res.status(500).json({
+      message: "Erreur serveur lors de l'enregistrement du clic",
+    });
+  }
+});
+
 // Routes admin (optionnelles)
 /**
  * @route GET /api/notifications/admin/stats
  * @desc Statistiques d'abonnements (admin seulement)
  * @access Private (Admin)
- */
-
-/**
-  total: 156,
-  totalThisWeek: 23,
-  subscribedUsers: 89,
-  newSubscribersThisWeek: 7,
-  deliveryRate: 94,
-  topType: 'Tournois',
-  topTypeCount: 45,
-  byType: {
-    tournaments: 45,
-    badges: 32,
-    reminders: 28,
-    system: 51,
-  },
  */
 router.get("/admin/stats", admin, async (req, res) => {
   try {

@@ -9,7 +9,7 @@ const {
   syncTournamentRoles,
   deleteTournamentRole,
 } = require("../discord-bot/index.js");
-//const { updateSignupMessages } = require("../services/schedulerService");
+const { updateSignupMessages } = require("../services/schedulerService");
 const winston = require("winston");
 const notificationService = require("../services/notificationService");
 
@@ -115,7 +115,9 @@ exports.createTournament = async (req, res) => {
       // Ne pas faire échouer la création du tournoi si la notification échoue
     }
 
-    //await updateSignupMessages();
+    if (process.env.ENV !== "dev") {
+      await updateSignupMessages();
+    }
     res.status(201).json(newTournament);
   } catch (error) {
     console.log("Erreur lors de la création du tournoi:", error);

@@ -10,12 +10,12 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const winston = require("winston");
 const discordbot = require("./discord-bot/index.js");
-//const { startScheduler } = require("./services/schedulerService");
+const { startScheduler } = require("./services/schedulerService");
 const gameProposalRoutes = require("./routes/gameProposalRoutes");
 const seasonRoutes = require("./routes/seasonRoutes");
 const playerGameLevelRoutes = require("./routes/playerGameLevelRoutes");
 const twitchRoutes = require("./routes/twitchRoutes");
-// const { initializeTwitchEventSubscriptions } = require("./discord-bot/twitch");
+const { initializeTwitchEventSubscriptions } = require("./discord-bot/twitch");
 const streamRoutes = require("./routes/streamRoutes");
 
 // Charger les variables d'environnement
@@ -75,11 +75,13 @@ app.use(cookieParser());
 app.use(helmet());
 
 // Limiter les requêtes à 100 par IP toutes les 15 minutes
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 350,
-// });
-// app.use(limiter);
+if (process.env.ENV !== "dev") {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 350,
+  });
+  app.use(limiter);
+}
 
 // Configurer CORS pour autoriser les requêtes depuis le frontend
 const allowedOrigins = process.env.CORS_ORIGIN.split(",");
@@ -162,12 +164,14 @@ mongoose
   })
   .then(() => {
     logger.info("Connected to MongoDB");
-    // initializeTwitchEventSubscriptions().catch((err) => {
-    //   logger.error(
-    //     "Échec de l'initialisation des abonnements Twitch EventSub:",
-    //     err
-    //   );
-    // });
+    if (process.env.ENV !== "dev") {
+      initializeTwitchEventSubscriptions().catch((err) => {
+        logger.error(
+          "Échec de l'initialisation des abonnements Twitch EventSub:",
+          err
+        );
+      });
+    }
   })
   .catch((err) => logger.error("Could not connect to MongoDB", err));
 
@@ -182,7 +186,9 @@ process.on("unhandledRejection", (err) => {
   process.exit(1);
 });
 
-//startScheduler();
+if (process.env.ENV !== "dev") {
+  startScheduler();
+}
 
 // Démarrer le serveur
 app.listen(PORT, () => {

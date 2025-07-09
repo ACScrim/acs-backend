@@ -56,7 +56,7 @@ const logger = winston.createLogger({
 // ===========================================
 // SECTION: CONFIGURATION DU CLIENT DISCORD
 // ===========================================
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Ready! Logged in as ${readyClient.user.tag}`);
@@ -1748,14 +1748,14 @@ client.on("ready", async () => {
 });
 
 // Connexion au bot Discord
-if (process.env.ENV !== "dev") {
+// if (process.env.ENV !== "dev") {
   client
     .login(token)
     .then(() => logger.info("Connexion au bot Discord réussie"))
     .catch((error) =>
       logger.error("Échec de la connexion au bot Discord:", error)
     );
-}
+// }
 
 // Exporter les fonctions
 module.exports = {
@@ -1776,4 +1776,5 @@ module.exports = {
   syncUserGameRoles,
   cleanupUnusedGameRoles,
   formatGameRoleName,
+  client
 };

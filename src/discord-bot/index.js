@@ -1748,14 +1748,14 @@ client.on("ready", async () => {
 });
 
 // Connexion au bot Discord
-// if (process.env.ENV !== "dev") {
+if (process.env.ENV !== "dev") {
   client
     .login(token)
     .then(() => logger.info("Connexion au bot Discord réussie"))
     .catch((error) =>
       logger.error("Échec de la connexion au bot Discord:", error)
     );
-// }
+}
 
 // Exporter les fonctions
 module.exports = {

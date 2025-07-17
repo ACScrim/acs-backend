@@ -2,6 +2,43 @@ const { client: discord } = require("../discord-bot")
 
 const guildId = process.env.DISCORD_GUILD_ID;
 
+// Cache pour stocker les membres
+let membersCache = [];
+let lastCacheUpdate = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
+const updateMembersCache = async () => {
+  try {
+    console.log("🔄 Mise à jour du cache des membres Discord...");
+    const startTime = Date.now();
+    
+    const guild = await discord.guilds.fetch(guildId);
+    
+    // Récupérer seulement les premiers 1000 membres actifs
+    const allMembers = await guild.members.fetch({ 
+      limit: 1000,
+      withPresences: false // Plus rapide sans les statuts de présence
+    });
+    
+    // Filtrer et mapper en une seule opération
+    membersCache = allMembers
+      .filter(member => !member.user.bot && !member.user.system)
+      .map(member => ({
+        id: member.id,
+        name: member.nickname || member.user.globalName || member.user.username,
+        avatar: member.user.displayAvatarURL({ size: 32 })
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)); // Trier alphabétiquement
+    
+    lastCacheUpdate = Date.now();
+    const duration = Date.now() - startTime;
+    
+    console.log(`✅ Cache mis à jour: ${membersCache.length} membres en ${duration}ms`);
+  } catch (error) {
+    console.error("❌ Erreur lors de la mise à jour du cache:", error);
+  }
+};
+
 exports.getChannels = async (req, res) => {
   if (!guildId) {
     return res.status(400).json({ error: "Discord guild ID is not set." });
@@ -12,14 +49,51 @@ exports.getChannels = async (req, res) => {
 }
 
 exports.getUsers = async (req, res) => {
-  if (!guildId) {
-    return res.status(400).json({ error: "Discord guild ID is not set." });
-  }
+  try {
+    if (!guildId) {
+      return res.status(400).json({ error: "Discord guild ID is not set." });
+    }
 
-  const allMembers = await (await discord.guilds.fetch(guildId)).members.fetch();
-  const users = allMembers.filter(member => !member.user.bot);
-  res.status(200).json({ data: users.map(u => ({ id: u.id, name: u.nickname ?? u.displayName })) });
-}
+    // Vérifier si le cache est valide
+    const now = Date.now();
+    if (now - lastCacheUpdate > CACHE_DURATION || membersCache.length === 0) {
+      await updateMembersCache();
+    }
+
+    // Pagination optionnelle
+    const { page = 1, limit = 100, search = "" } = req.query;
+    let filteredMembers = membersCache;
+
+    // Recherche si spécifiée
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredMembers = membersCache.filter(member =>
+        member.name.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+
+    res.status(200).json({
+      data: paginatedMembers,
+      pagination: {
+        total: filteredMembers.length,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(filteredMembers.length / limit)
+      },
+      cached: true,
+      lastUpdate: new Date(lastCacheUpdate).toISOString()
+    });
+
+  } catch (error) {
+    console.error("Erreur lors de la récupération des utilisateurs:", error);
+    res.status(500).json({ error: "Failed to fetch users." });
+  }
+};
 
 exports.sendChannelMessage = async (req, res) => {
   const { channelId, message } = req.body;

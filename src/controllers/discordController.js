@@ -61,7 +61,7 @@ exports.getUsers = async (req, res) => {
     }
 
     // Pagination optionnelle
-    const { page = 1, limit = 100, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "" } = req.query;
     let filteredMembers = membersCache;
 
     // Recherche si spécifiée

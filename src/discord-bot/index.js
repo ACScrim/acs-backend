@@ -189,6 +189,47 @@ function createEmbed({
   return embed;
 }
 
+/**
+ * Wrapper pour les fonctions qui envoient des messages dans les canaux
+ * @param {Channel} channel - Canal Discord
+ * @param {Object} messageOptions - Options du message
+ * @param {string} logMessage - Message de log
+ * @returns {Promise<Message|boolean>} Message envoyé ou boolean en mode dev
+ */
+async function sendChannelMessageIfNotDev(channel, messageOptions, logMessage) {
+  if (process.env.ENV === "dev") {
+    logger.info(`[DEV MODE] ${logMessage}`, {
+      channel: channel?.name,
+      content: messageOptions?.content?.substring(0, 100) + "...",
+      embedTitle: messageOptions?.embeds?.[0]?.data?.title
+    });
+    return true;
+  }
+  
+  return await channel.send(messageOptions);
+}
+
+/**
+ * Wrapper pour les messages privés
+ * @param {GuildMember} member - Membre Discord
+ * @param {Object} messageOptions - Options du message
+ * @param {string} logMessage - Message de log
+ * @returns {Promise<Message|boolean>} Message envoyé ou boolean en mode dev
+ */
+async function sendDirectMessageIfNotDev(member, messageOptions, logMessage) {
+  console.log(process.env.ENV)
+  if (process.env.ENV === "dev") {
+    logger.info(`[DEV MODE] ${logMessage}`, {
+      user: member?.user?.username,
+      content: messageOptions?.content?.substring(0, 100) + "...",
+      embedTitle: messageOptions?.embeds?.[0]?.data?.title
+    });
+    return true;
+  }
+  
+  return await member.send(messageOptions);
+}
+
 // ===========================================
 // SECTION: GESTION DES CANAUX VOCAUX
 // ===========================================
@@ -325,15 +366,23 @@ async function sendDirectMessage(player, embed, messageContent) {
       return false;
     }
 
-    await member.send({ content: messageContent, embeds: [embed] });
-    logger.debug(
-      `✅ Message envoyé à ${player.username} (Discord ID: ${player.discordId})`
+    // Utiliser le wrapper au lieu d'envoyer directement
+    const sent = await sendDirectMessageIfNotDev(
+      member,
+      { content: messageContent, embeds: [embed] },
+      `Message privé à ${player.username}: ${messageContent.substring(0, 50)}...`
     );
-    return true;
+
+    if (sent) {
+      logger.debug(
+        `✅ Message envoyé à ${player.username} (Discord ID: ${player.discordId})`
+      );
+      return true;
+    }
+    return false;
   } catch (error) {
     logger.error(
-      `Erreur lors de l'envoi d'un message à ${player?.username || "joueur inconnu"
-      }:`,
+      `Erreur lors de l'envoi d'un message à ${player?.username || "joueur inconnu"}:`,
       error
     );
     return false;
@@ -545,23 +594,30 @@ const sendTournamentReminder = async (tournament) => {
 
     // Envoyer le message dans le canal
     try {
-      await targetChannel.send({
-        content: `${mentionText} N'oubliez pas de faire votre check-in pour ce tournoi !\nRendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
-        embeds: [embed],
-      });
-
-      const tournamentWithPlayers = await tournament.populate('players');
-
-      await notifyTournamentReminder(
-        tournament,
-        tournamentWithPlayers.players.map((p) => p.userId)
-      )
-
-      logger.info(
-        `✅ Notification envoyée avec succès pour le tournoi "${tournament.name}" dans #${targetChannel.name}`
+      const sent = await sendChannelMessageIfNotDev(
+        targetChannel,
+        {
+          content: `${mentionText} N'oubliez pas de faire votre check-in pour ce tournoi !\nRendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
+          embeds: [embed],
+        },
+        `Rappel de tournoi: ${tournament.name} dans #${targetChannel.name}`
       );
 
-      return true;
+      if (sent) {
+        const tournamentWithPlayers = await tournament.populate('players');
+
+        await notifyTournamentReminder(
+          tournament,
+          tournamentWithPlayers.players.map((p) => p.userId)
+        );
+
+        logger.info(
+          `✅ Notification envoyée avec succès pour le tournoi "${tournament.name}" dans #${targetChannel.name}`
+        );
+
+        return true;
+      }
+      return false;
     } catch (sendError) {
       logger.error(
         `Erreur lors de l'envoi du message dans le canal ${targetChannel.name}:`,
@@ -699,46 +755,46 @@ const updateTournamentSignupMessage = async (tournament) => {
           `[Inscription] Message existant trouvé pour ${tournament.name}, ID: ${existingMessage.id}`
         );
 
+        // En mode dev, on simule la modification
+        if (process.env.ENV === "dev") {
+          logger.info(`[DEV MODE] Simulation de modification du message d'inscription pour ${tournament.name}`);
+          return true;
+        }
+
         await existingMessage.edit({
-          content: `**${tournament.name
-            }** - Liste des inscriptions mise à jour <t:${Math.floor(
-              Date.now() / 1000
-            )}:R>`,
+          content: `**${tournament.name}** - Liste des inscriptions mise à jour <t:${Math.floor(Date.now() / 1000)}:R>`,
           embeds: [embed],
         });
-        logger.info(
-          `[Inscription] Message existant mis à jour pour ${tournament.name}`
-        );
+        
+        logger.info(`[Inscription] Message existant mis à jour pour ${tournament.name}`);
         return true;
       } catch (editError) {
-        logger.error(
-          `[Inscription] Échec de la modification du message:`,
-          editError
-        );
+        logger.error(`[Inscription] Échec de la modification du message:`, editError);
       }
     } else {
-      logger.info(
-        `[Inscription] Aucun message existant trouvé pour ${tournament.name}, création d'un nouveau`
-      );
+      logger.info(`[Inscription] Aucun message existant trouvé pour ${tournament.name}, création d'un nouveau`);
     }
 
     // Créer un nouveau message si échec de la modification ou message inexistant
-    const newMessage = await targetChannel.send({
-      content: `📣 **INSCRIPTIONS OUVERTES: ${tournament.name}**`,
-      embeds: [embed],
-    });
+    const newMessage = await sendChannelMessageIfNotDev(
+      targetChannel,
+      {
+        content: `📣 **INSCRIPTIONS OUVERTES: ${tournament.name}**`,
+        embeds: [embed],
+      },
+      `Nouveau message d'inscription pour ${tournament.name}`
+    );
 
-    // Enregistrer l'ID du message dans le tournoi
-    tournament.messageId = newMessage.id;
-    await tournament.save();
+    if (newMessage && newMessage !== true) {
+      // Enregistrer l'ID du message uniquement si c'est un vrai message (pas en mode dev)
+      tournament.messageId = newMessage.id;
+      await tournament.save();
+    }
 
     logger.info(`[Inscription] Nouveau message créé pour ${tournament.name}`);
     return true;
   } catch (error) {
-    logger.error(
-      `[Inscription] Erreur lors de la mise à jour du message:`,
-      error
-    );
+    logger.error(`[Inscription] Erreur lors de la mise à jour du message:`, error);
     return false;
   }
 };
@@ -1589,12 +1645,16 @@ async function sendPropositionEmbed() {
 
     for (const proposal of proposals) {
       const { embed, row } = buildProposalEmbed(proposal);
-      // Envoyer l'embed
-      await channel.send({
-        embeds: [embed],
-        components: [row],
-        withResponse: true,
-      });
+      
+      await sendChannelMessageIfNotDev(
+        channel,
+        {
+          embeds: [embed],
+          components: [row],
+          withResponse: true,
+        },
+        `Proposition de jeu: ${proposal.name}`
+      );
     }
   } catch (error) {
     logger.error("Erreur lors de l'envoi de l'embed de proposition:", error);
@@ -1748,14 +1808,12 @@ client.on("ready", async () => {
 });
 
 // Connexion au bot Discord
-if (process.env.ENV !== "dev") {
-  client
-    .login(token)
-    .then(() => logger.info("Connexion au bot Discord réussie"))
-    .catch((error) =>
-      logger.error("Échec de la connexion au bot Discord:", error)
-    );
-}
+client
+  .login(token)
+  .then(() => logger.info("Connexion au bot Discord réussie"))
+  .catch((error) =>
+    logger.error("Échec de la connexion au bot Discord:", error)
+  );
 
 // Exporter les fonctions
 module.exports = {
@@ -1776,5 +1834,7 @@ module.exports = {
   syncUserGameRoles,
   cleanupUnusedGameRoles,
   formatGameRoleName,
-  client
+  client,
+  sendChannelMessageIfNotDev,
+  sendDirectMessageIfNotDev
 };

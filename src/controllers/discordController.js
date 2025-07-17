@@ -1,4 +1,4 @@
-const { client: discord } = require("../discord-bot")
+const { client: discord, sendChannelMessageIfNotDev, sendDirectMessageIfNotDev } = require("../discord-bot")
 
 const guildId = process.env.DISCORD_GUILD_ID;
 
@@ -34,7 +34,16 @@ exports.sendChannelMessage = async (req, res) => {
       return res.status(404).json({ error: "Channel not found or is not a text channel." });
     }
 
-    await channel.send(message);
+    const sent = await sendChannelMessageIfNotDev(
+      channel,
+      {
+        content: message
+      },
+      `Message admin "${message}" envoyé dans #${channel.name}`
+    );
+    if (!sent) {
+      return res.status(500).json({ error: "Failed to send message." });
+    }
     res.status(200).json({ success: true, message: "Message sent successfully." });
   } catch (error) {
     console.error("Error sending message:", error);
@@ -53,7 +62,16 @@ exports.sendPrivateMessage = async (req, res) => {
     const users = await Promise.all(userIds.map(id => discord.users.fetch(id)));
     for (const user of users) {
       if (!user) continue;
-      await user.send(message);
+      const sent = await sendDirectMessageIfNotDev(
+        user,
+        {
+          content: message
+        },
+        `Message admin "${message}" envoyé à ${user.username}`
+      )
+      if (!sent) {
+        return res.status(500).json({ error: `Failed to send message to user ${user.username}.` });
+      }
     }
     res.status(200).json({ success: true, message: "Private messages sent successfully." });
   } catch (error) {

@@ -17,6 +17,7 @@ const playerGameLevelRoutes = require("./routes/playerGameLevelRoutes");
 const twitchRoutes = require("./routes/twitchRoutes");
 const { initializeTwitchEventSubscriptions } = require("./discord-bot/twitch");
 const streamRoutes = require("./routes/streamRoutes");
+const { startDecorationScheduler } = require("./services/decorationService");
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -188,9 +189,10 @@ process.on("unhandledRejection", (err) => {
   process.exit(1);
 });
 
-if (process.env.ENV !== "dev") {
+// if (process.env.ENV !== "dev") {
   startScheduler();
-}
+  startDecorationScheduler();
+// }
 
 // Démarrer le serveur
 app.listen(PORT, () => {

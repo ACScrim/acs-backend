@@ -5,6 +5,7 @@ const {
   // sendCheckInReminders,
 } = require("../discord-bot/index");
 const winston = require("winston");
+const { safeCronJob, startJobs } = require("./cronService");
 
 // Utiliser le logger Winston déjà configuré dans l'application
 const logger = winston.createLogger({
@@ -234,21 +235,26 @@ const updateSignupMessages = async () => {
 
 // Démarrer la planification
 const startScheduler = () => {
-  logger.info("Démarrage du planificateur de tournois");
+  // Définir les tâches avec gestion d'erreurs
+  const jobs = [
+    {
+      schedule: '*/20 * * * *',
+      task: safeCronJob(checkUpcomingTournaments, 'Vérification tournois'),
+      name: 'tournament-check'
+    },
+    {
+      schedule: '*/20 * * * *',
+      task: safeCronJob(checkPlayerReminders, 'Rappels joueurs'),
+      name: 'player-reminders'
+    },
+    {
+      schedule: '0 * * * *',
+      task: safeCronJob(updateSignupMessages, 'Mise à jour messages'),
+      name: 'signup-updates'
+    }
+  ];
 
-  // Exécuter immédiatement au démarrage
-  checkUpcomingTournaments();
-  checkPlayerReminders(); // Vérifier les rappels MP aux joueurs
-  updateSignupMessages();
-
-  const checkInterval = 20 * 60 * 1000; // 20 minutes en millisecondes
-  setInterval(checkUpcomingTournaments, checkInterval);
-  setInterval(checkPlayerReminders, checkInterval);
-
-  // Mettre à jour les messages d'inscription toutes les heures
-  setInterval(updateSignupMessages, 60 * 60 * 1000);
-
-  logger.info("Planificateur de tournois démarré avec intervalle d'une heure");
+  startJobs(jobs);
 };
 
 module.exports = { startScheduler, updateSignupMessages, checkPlayerReminders };

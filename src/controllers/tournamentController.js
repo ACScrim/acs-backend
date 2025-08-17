@@ -448,8 +448,18 @@ exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers discordReminderDate privateReminderDate playerCap teams.players description"
-    );
+      "game players waitlistPlayers discordReminderDate privateReminderDate playerCap teams.players description mvps.player"
+    ).transform(async t => {
+      t.mvps = await Promise.all(t.mvps.map(async mvp => ({
+        ...mvp,
+        player: {
+          ...mvp.player,
+          avatarUrl: (await User.findById(mvp.player.userId)).avatarUrl
+        }
+      })));
+      return t;
+    });
+
     res.status(200).json(tournament);
   } catch (error) {
     res
@@ -1148,6 +1158,38 @@ exports.voteForMvp = async (req, res) => {
     console.error("Erreur lors du vote pour le MVP:", err);
     res.status(500).json({
       message: "Erreur lors du vote pour le MVP",
+      error: err.message,
+    });
+  }
+}
+
+exports.closeMvpVote = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    tournament.mvpVoteOpen = false;
+
+    // Calculer le MVP, le (ou les si égalité) MVP est le joueur avec le plus de votes
+    const maxVotes = Math.max(...tournament.mvps.map(mvp => mvp.votes.length));
+    tournament.mvps.forEach(mvp => {
+      mvp.isMvp = mvp.votes.length === maxVotes;
+    });
+
+    await tournament.save();
+
+    res.status(200).json({
+      message: "Le vote pour le MVP a été fermé avec succès",
+      tournament
+    });
+  } catch (err) {
+    console.error("Erreur lors de la fermeture du vote pour le MVP:", err);
+    res.status(500).json({
+      message: "Erreur lors de la fermeture du vote pour le MVP",
       error: err.message,
     });
   }

@@ -19,7 +19,8 @@ const {
   unmarkTournamentAsFinished,
   deleteAllTeams,
   toggleTeamsPublication,
-  voteForMvp, // Ajouter l'import de la nouvelle fonction
+  voteForMvp,
+  closeMvpVote, // Ajouter l'import de la nouvelle fonction
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const { create } = require("connect-mongo");
@@ -62,4 +63,5 @@ router.post("/create-discord-channels", createDiscordChannels);
 router.route("/:id/delete-teams").delete(protect, admin, deleteAllTeams);
 
 router.route("/:id/vote-mvp").post(protect, voteForMvp);
+router.route("/:id/close-mvp-vote").post(protect, admin, closeMvpVote);
 module.exports = router;

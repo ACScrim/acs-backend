@@ -195,6 +195,8 @@ exports.getPlayerRankings = async (req, res) => {
         const rank = playerTeam ? playerTeam.ranking || null : null;
         const numberOfTeams = tournament.teams ? tournament.teams.length : 0;
 
+        const isMvp = tournament.mvps.some(mvp => mvp.player._id.toString() === player._id.toString());
+
         return {
           _id: tournament._id,
           name: tournament.name,
@@ -205,6 +207,7 @@ exports.getPlayerRankings = async (req, res) => {
           numberOfTeams: numberOfTeams,
           // L'équipe gagnante est désormais déterminée par le ranking=1
           isWinner: playerTeam && playerTeam.ranking === 1,
+          isMvp
         };
       });
 
@@ -214,7 +217,7 @@ exports.getPlayerRankings = async (req, res) => {
         totalPoints,
         totalTournaments: playerTournaments.length,
         totalVictories,
-        tournamentsParticipated,
+        tournamentsParticipated
       };
     });
 

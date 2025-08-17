@@ -63,7 +63,11 @@ const tournamentSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
-  mvps: [mvpSchema]
+  mvps: [mvpSchema],
+  mvpVoteOpen: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const Tournament =

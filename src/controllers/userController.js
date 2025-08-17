@@ -248,3 +248,23 @@ exports.getUsersWithGameRole = async (req, res) => {
     });
   }
 };
+
+
+exports.getUserAvatar = async (req, res) => {
+  try {
+    const { id: userId } = req.params;
+
+    const user = await User.findById(userId).select("profile.avatar");
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    res.status(200).json(user.profile.avatar);
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'avatar de l'utilisateur:", error);
+    res.status(500).json({
+      message: "Erreur lors de la récupération de l'avatar de l'utilisateur",
+      error: error.message,
+    });
+  }
+}

@@ -1098,3 +1098,57 @@ exports.toggleTeamsPublication = async (req, res) => {
     });
   }
 };
+
+// MVPs
+exports.voteForMvp = async (req, res) => {
+  try {
+    const user = req.user;
+    const { playerId } = req.body;
+    const { id } = req.params;
+
+    const tournament = await Tournament.findById(id);
+
+    const existingVote = tournament.mvps.find(mvp => mvp.votes.includes(user._id));
+
+    if (existingVote && existingVote.player.toString() === playerId) {
+      res.status(400).json({
+        message: "Vous avez déjà voté pour ce joueur."
+      });
+      return;
+    }
+
+    if (existingVote && existingVote.player.toString() !== playerId) {
+      // Retirer le vote existant
+      existingVote.votes = existingVote.votes.filter(vote => vote.toString() !== user._id.toString());
+      if (existingVote.votes.length === 0) {
+        tournament.mvps = tournament.mvps.filter(mvp => mvp.player.toString() !== existingVote.player.toString());
+      }
+    }
+
+    const tournamentMvp = tournament.mvps.find(mvp => mvp.player.toString() === playerId);
+    if (!tournamentMvp) {
+      tournament.mvps.push({
+        player: playerId,
+        votes: [user._id],
+        isMvp: false
+      });
+    }
+    // Mettre à jour la liste des votes si le joueur est déjà dans la liste
+    if (tournamentMvp) {
+      tournamentMvp.votes.push(user._id);
+    }
+
+    await tournament.save();
+
+    res.status(200).json({
+      message: "Vote enregistré avec succès",
+      tournament
+    });
+  } catch (err) {
+    console.error("Erreur lors du vote pour le MVP:", err);
+    res.status(500).json({
+      message: "Erreur lors du vote pour le MVP",
+      error: err.message,
+    });
+  }
+}

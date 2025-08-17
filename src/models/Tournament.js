@@ -8,6 +8,12 @@ const teamSchema = new mongoose.Schema({
   ranking: { type: Number, default: 0 },
 });
 
+const mvpSchema = new mongoose.Schema({
+  player: { type: Schema.Types.ObjectId, ref: "Player", required: true },
+  votes: [{ type: Schema.Types.ObjectId, ref: "Player" }],
+  isMvp: { type: Boolean, default: false }
+});
+
 const tournamentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   game: { type: mongoose.Schema.Types.ObjectId, ref: "Game", required: true },
@@ -57,6 +63,7 @@ const tournamentSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  mvps: [mvpSchema]
 });
 
 const Tournament =

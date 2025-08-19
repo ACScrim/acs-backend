@@ -8,6 +8,8 @@ const {
   removeTournamentRole,
   syncTournamentRoles,
   deleteTournamentRole,
+  notifyMvpVoteOpen,
+  notifyMvpWinner
 } = require("../discord-bot/index.js");
 const { updateSignupMessages } = require("../services/schedulerService");
 const winston = require("winston");
@@ -497,6 +499,9 @@ exports.finishTournament = async (req, res) => {
 
     const notificationService = require("../services/notificationService");
     notificationService.notifyWinningTeam(tournament, winningTeam);
+    notificationService.notifyMvpVoteOpen(tournament);
+
+    notifyMvpVoteOpen(tournament);
 
     tournament.finished = true;
     await tournament.save();
@@ -534,6 +539,9 @@ exports.markTournamentAsFinished = async (req, res) => {
 
     const notificationService = require("../services/notificationService");
     notificationService.notifyWinningTeam(tournament, winningTeam);
+    notificationService.notifyMvpVoteOpen(tournament);
+
+    notifyMvpVoteOpen(tournament);
 
     tournament.finished = true;
     await tournament.save();
@@ -1167,7 +1175,7 @@ exports.closeMvpVote = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const tournament = await Tournament.findById(id);
+    const tournament = await Tournament.findById(id).populate("mvps.player");
     if (!tournament) {
       return res.status(404).json({ message: "Tournoi non trouvé" });
     }
@@ -1179,8 +1187,13 @@ exports.closeMvpVote = async (req, res) => {
     tournament.mvps.forEach(mvp => {
       mvp.isMvp = mvp.votes.length === maxVotes;
     });
-
+    
     await tournament.save();
+
+    const notificationService = require("../services/notificationService");
+    notificationService.notifyMvpWinner(tournament);
+
+    notifyMvpWinner(tournament);    
 
     res.status(200).json({
       message: "Le vote pour le MVP a été fermé avec succès",

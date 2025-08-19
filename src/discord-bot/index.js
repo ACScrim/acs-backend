@@ -205,7 +205,7 @@ async function sendChannelMessageIfNotDev(channel, messageOptions, logMessage) {
     });
     return true;
   }
-  
+
   return await channel.send(messageOptions);
 }
 
@@ -217,7 +217,6 @@ async function sendChannelMessageIfNotDev(channel, messageOptions, logMessage) {
  * @returns {Promise<Message|boolean>} Message envoyé ou boolean en mode dev
  */
 async function sendDirectMessageIfNotDev(member, messageOptions, logMessage) {
-  console.log(process.env.ENV)
   if (process.env.ENV === "dev") {
     logger.info(`[DEV MODE] ${logMessage}`, {
       user: member?.user?.username,
@@ -226,7 +225,7 @@ async function sendDirectMessageIfNotDev(member, messageOptions, logMessage) {
     });
     return true;
   }
-  
+
   return await member.send(messageOptions);
 }
 
@@ -765,7 +764,7 @@ const updateTournamentSignupMessage = async (tournament) => {
           content: `**${tournament.name}** - Liste des inscriptions mise à jour <t:${Math.floor(Date.now() / 1000)}:R>`,
           embeds: [embed],
         });
-        
+
         logger.info(`[Inscription] Message existant mis à jour pour ${tournament.name}`);
         return true;
       } catch (editError) {
@@ -1645,7 +1644,7 @@ async function sendPropositionEmbed() {
 
     for (const proposal of proposals) {
       const { embed, row } = buildProposalEmbed(proposal);
-      
+
       await sendChannelMessageIfNotDev(
         channel,
         {
@@ -1795,6 +1794,53 @@ const updateProposalEmbed = async (proposal) => {
   }
 };
 
+// MVP Messages
+
+const notifyMvpVoteOpen = async (tournament) => {
+  try {
+    const embed = createEmbed({
+      title: `🏆 Votez pour le MVP de ${tournament.name}!`,
+      description: "Le vote pour le MVP est maintenant ouvert! Utilisez les boutons ci-dessous pour voter.",
+      color: "#FBBF24", // Jaune
+    });
+
+    return await sendChannelMessageIfNotDev(
+      tournament.discordChannelName,
+      {
+        content: `**Le vote pour le MVP de ${tournament.name} est ouvert** !\nRendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
+        embeds: [embed],
+      },
+      `Notification ouverture vote MVP: ${tournament.name} dans #${tournament.discordChannelName}`
+    );
+  } catch (error) {
+    logger.error(`Erreur globale lors de la notification de l'ouverture du vote MVP:`, error);
+    return false;
+  }
+};
+
+const notifyMvpWinner = async (tournament) => {
+  const mvps = tournament.mvps.filter(mvp => mvp.isMvp);
+  try {
+    const embed = createEmbed({
+      title: mvps.length > 1 ? `🏆 Les MVPs de ${tournament.name} sont ${mvps.map(mvp => mvp.player.username).join(", ")}!` : `🏆 Le MVP de ${tournament.name} est ${mvps[0].player.username}!`,
+      description: mvps.length > 1 ? "Félicitations aux MVPs!" : "Félicitations au MVP!",
+      color: "#FBBF24", // Jaune
+    });
+
+    return await sendChannelMessageIfNotDev(
+      tournament.discordChannelName,
+      {
+        content: `**Le vote pour le MVP de ${tournament.name} est fermé** !`,
+        embeds: [embed],
+      },
+      `Notification fermeture vote MVP: ${tournament.name} dans #${tournament.discordChannelName}`
+    );
+  } catch (error) {
+    logger.error(`Erreur globale lors de la notification de la fermeture du vote MVP:`, error);
+    return false;
+  }
+}
+
 client.on("ready", async () => {
   await sendPropositionEmbed();
 
@@ -1836,5 +1882,7 @@ module.exports = {
   formatGameRoleName,
   client,
   sendChannelMessageIfNotDev,
-  sendDirectMessageIfNotDev
+  sendDirectMessageIfNotDev,
+  notifyMvpVoteOpen,
+  notifyMvpWinner
 };

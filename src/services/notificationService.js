@@ -359,6 +359,44 @@ class NotificationService {
     // Envoi de la notification à tous les abonnés
     return await this.sendToAllSubscribers(payload, { type: "tournaments" });
   }
+
+  async notifyMvpVoteOpen(tournament) {
+    const payload = {
+      title: `🏆 Vote pour le MVP du tournoi ${tournament.name} !`,
+      body: `Le vote pour le MVP du tournoi ${tournament.name} est maintenant ouvert !`,
+      icon: "/Logo_ACS.png",
+      badge: "/Logo_ACS.png",
+      tag: `mvp-vote-${tournament._id}`,
+      data: {
+        type: "tournaments",
+        tournamentId: tournament._id,
+        url: `/tournois/${tournament._id}`,
+      },
+    };
+
+    // Envoi de la notification à tous les abonnés
+    return await this.sendToAllSubscribers(payload, { type: "tournaments" });
+  }
+
+  async notifyMvpWinner(tournament) {
+    const mvps = tournament.mvps.filter(mvp => mvp.isMvp);
+
+    const payload = {
+      title: `🏆 MVP du tournoi ${tournament.name} !`,
+      body: mvps.length > 1 ? `Félicitations à ${mvps.map(mvp => mvp.player.username).join(", ")} qui sont les MVPs de cette soirée !` : `Félicitations à ${mvps[0].player.username} qui est le MVP de cette soirée !`,
+      icon: "/Logo_ACS.png",
+      badge: "/Logo_ACS.png",
+      tag: `mvp-${tournament._id}`,
+      data: {
+        type: "tournaments",
+        tournamentId: tournament._id,
+        url: `/tournois/${tournament._id}`,
+      },
+    };
+
+    // Envoi de la notification à tous les abonnés
+    return await this.sendToAllSubscribers(payload, { type: "tournaments" });
+  }
 }
 
 module.exports = new NotificationService();

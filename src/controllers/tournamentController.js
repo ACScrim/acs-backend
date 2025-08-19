@@ -504,6 +504,7 @@ exports.finishTournament = async (req, res) => {
     notifyMvpVoteOpen(tournament);
 
     tournament.finished = true;
+    tournament.mvpVoteOpen = true;
     await tournament.save();
 
     res.status(200).json(tournament);
@@ -544,6 +545,7 @@ exports.markTournamentAsFinished = async (req, res) => {
     notifyMvpVoteOpen(tournament);
 
     tournament.finished = true;
+    tournament.mvpVoteOpen = true;
     await tournament.save();
 
     const populatedTournament = await Tournament.findById(id).populate("game");

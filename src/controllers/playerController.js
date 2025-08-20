@@ -459,8 +459,10 @@ exports.getPlayerSeasonChampionships = async (req, res) => {
   try {
     const playerId = req.params.id;
 
-    // Récupérer toutes les saisons sauf la plus récente (numéro le plus élevé)
-    const allSeasons = await Season.find().sort({ numero: -1 });
+    // Récupérer toutes les saisons sauf la plus récente (numéro le plus élevé) et exclure la saison 0
+    const allSeasons = await Season.find({ numero: { $ne: 0 } }).sort({
+      numero: -1,
+    });
 
     if (allSeasons.length <= 1) {
       // Si il n'y a qu'une seule saison ou aucune, pas de saisons passées
@@ -473,6 +475,9 @@ exports.getPlayerSeasonChampionships = async (req, res) => {
     const championships = [];
 
     for (const season of pastSeasons) {
+      // Ignorer la saison 0 (saison spéciale)
+      if (season.numero === 0) continue;
+
       // Récupérer le classement de cette saison
       const seasonWithTournaments = await Season.findById(season._id).populate({
         path: "tournois",

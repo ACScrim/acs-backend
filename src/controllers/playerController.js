@@ -1,6 +1,7 @@
 const Player = require("../models/Player");
 const User = require("../models/User");
 const Tournament = require("../models/Tournament");
+const Season = require("../models/Season");
 // Récupérer la liste des joueurs
 exports.getPlayers = async (req, res) => {
   try {
@@ -195,7 +196,9 @@ exports.getPlayerRankings = async (req, res) => {
         const rank = playerTeam ? playerTeam.ranking || null : null;
         const numberOfTeams = tournament.teams ? tournament.teams.length : 0;
 
-        const isMvp = tournament.mvps.some(mvp => mvp.player._id.toString() === player._id.toString());
+        const isMvp = tournament.mvps.some(
+          (mvp) => mvp.player._id.toString() === player._id.toString()
+        );
 
         return {
           _id: tournament._id,
@@ -207,7 +210,7 @@ exports.getPlayerRankings = async (req, res) => {
           numberOfTeams: numberOfTeams,
           // L'équipe gagnante est désormais déterminée par le ranking=1
           isWinner: playerTeam && playerTeam.ranking === 1,
-          isMvp
+          isMvp,
         };
       });
 
@@ -217,7 +220,7 @@ exports.getPlayerRankings = async (req, res) => {
         totalPoints,
         totalTournaments: playerTournaments.length,
         totalVictories,
-        tournamentsParticipated
+        tournamentsParticipated,
       };
     });
 
@@ -446,6 +449,127 @@ exports.getExtendedStats = async (req, res) => {
     );
     res.status(500).json({
       message: "Erreur lors de la récupération des statistiques étendues",
+      error: error.message,
+    });
+  }
+};
+
+// Récupérer les championnats de saisons d'un joueur
+exports.getPlayerSeasonChampionships = async (req, res) => {
+  try {
+    const playerId = req.params.id;
+
+    // Récupérer toutes les saisons sauf la plus récente (numéro le plus élevé)
+    const allSeasons = await Season.find().sort({ numero: -1 });
+
+    if (allSeasons.length <= 1) {
+      // Si il n'y a qu'une seule saison ou aucune, pas de saisons passées
+      return res.status(200).json([]);
+    }
+
+    // Exclure la saison actuelle (la première dans le tri décroissant)
+    const pastSeasons = allSeasons.slice(1);
+
+    const championships = [];
+
+    for (const season of pastSeasons) {
+      // Récupérer le classement de cette saison
+      const seasonWithTournaments = await Season.findById(season._id).populate({
+        path: "tournois",
+        populate: {
+          path: "teams",
+          populate: {
+            path: "players",
+          },
+        },
+      });
+
+      if (!seasonWithTournaments || !seasonWithTournaments.tournois) continue;
+
+      // Calculer les statistiques du joueur pour cette saison
+      const playerStats = {
+        totalVictories: 0,
+        totalTournaments: 0,
+      };
+
+      for (const tournament of seasonWithTournaments.tournois) {
+        if (!tournament.finished || !tournament.teams) continue;
+
+        // Vérifier si le joueur a participé à ce tournoi
+        const playerTeam = tournament.teams.find((team) =>
+          team.players.some(
+            (p) => p._id && p._id.toString() === playerId.toString()
+          )
+        );
+
+        if (playerTeam) {
+          playerStats.totalTournaments++;
+          if (playerTeam.ranking === 1) {
+            playerStats.totalVictories++;
+          }
+        }
+      }
+
+      // Calculer le classement pour cette saison
+      const allPlayerStats = {};
+
+      for (const tournament of seasonWithTournaments.tournois) {
+        if (!tournament.finished || !tournament.teams) continue;
+
+        for (const team of tournament.teams) {
+          for (const player of team.players) {
+            const pId = player._id.toString();
+
+            if (!allPlayerStats[pId]) {
+              allPlayerStats[pId] = {
+                playerId: pId,
+                username: player.username,
+                totalVictories: 0,
+                totalTournaments: 0,
+              };
+            }
+
+            allPlayerStats[pId].totalTournaments++;
+            if (team.ranking === 1) {
+              allPlayerStats[pId].totalVictories++;
+            }
+          }
+        }
+      }
+
+      // Trier les joueurs par victoires décroissantes
+      const seasonRankings = Object.values(allPlayerStats)
+        .filter((p) => p.totalTournaments > 0)
+        .sort((a, b) => {
+          if (b.totalVictories !== a.totalVictories) {
+            return b.totalVictories - a.totalVictories;
+          }
+          return b.totalTournaments - a.totalTournaments;
+        });
+
+      // Vérifier si le joueur est champion de cette saison (1ère place)
+      if (
+        seasonRankings.length > 0 &&
+        seasonRankings[0].playerId === playerId.toString()
+      ) {
+        championships.push({
+          seasonNumber: season.numero,
+          seasonId: season._id,
+          totalVictories: playerStats.totalVictories,
+          totalTournaments: playerStats.totalTournaments,
+          isChampion: true,
+        });
+      }
+    }
+
+    res.status(200).json(championships);
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération des championnats de saisons:",
+      error
+    );
+    res.status(500).json({
+      message: "Erreur lors de la récupération des championnats de saisons",
       error: error.message,
     });
   }

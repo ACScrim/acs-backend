@@ -12,6 +12,7 @@ const {
   getPlayerByIdUser,
   getPlayerProfile,
   getExtendedStats,
+  getPlayerSeasonChampionships,
 } = require("../controllers/playerController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const router = express.Router();
@@ -32,5 +33,6 @@ router.route("/:id").delete(protect, admin, deletePlayer);
 router.route("/synchronize").post(protect, admin, synchronizePlayers);
 
 router.get("/:id/extended-stats", protect, getExtendedStats);
+router.get("/:id/season-championships", getPlayerSeasonChampionships);
 
 module.exports = router;

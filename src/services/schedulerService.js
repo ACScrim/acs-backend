@@ -212,7 +212,7 @@ const updateSignupMessages = async () => {
     // Traiter chaque tournoi individuellement
     for (const tournament of upcomingTournaments) {
       // Mise à jour du message d'inscription pour ce tournoi
-      //const success = await updateTournamentSignupMessage(tournament);
+      const success = await updateTournamentSignupMessage(tournament);
 
       if (success) {
         logger.info(

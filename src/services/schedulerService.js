@@ -1,8 +1,8 @@
 const Tournament = require("../models/Tournament");
 const {
-  // sendTournamentReminder,
-  // updateTournamentSignupMessage,
-  // sendCheckInReminders,
+  sendTournamentReminder,
+  updateTournamentSignupMessage,
+  sendCheckInReminders,
 } = require("../discord-bot/index");
 const winston = require("winston");
 

@@ -196,9 +196,9 @@ exports.getPlayerRankings = async (req, res) => {
         const rank = playerTeam ? playerTeam.ranking || null : null;
         const numberOfTeams = tournament.teams ? tournament.teams.length : 0;
 
-        const isMvp = tournament.mvps.some(
-          (mvp) => mvp.player._id.toString() === player._id.toString()
-        );
+        const isMvp = tournament.mvps.find(
+          (mvp) => mvp.player.toString() === player._id.toString()
+        )?.isMvp || false;
 
         return {
           _id: tournament._id,

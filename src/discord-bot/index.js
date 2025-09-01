@@ -1804,8 +1804,23 @@ const notifyMvpVoteOpen = async (tournament) => {
       color: "#FBBF24", // Jaune
     });
 
-    return await sendChannelMessageIfNotDev(
+    const guild = await fetchGuild();
+    if (!guild) return;
+
+    // Récupérer le canal de proposition
+    const channel = findChannel(
+      guild.channels.cache,
       tournament.discordChannelName,
+      ChannelType.GuildText
+    );
+
+    if (!channel) {
+      logger.error("Canal de propositions introuvable");
+      return;
+    }
+
+    return await sendChannelMessageIfNotDev(
+      channel,
       {
         content: `**Le vote pour le MVP de ${tournament.name} est ouvert** !\nRendez-vous sur [acscrim.fr](https://acscrim.fr/tournois/${tournament._id})`,
         embeds: [embed],
@@ -1827,8 +1842,23 @@ const notifyMvpWinner = async (tournament) => {
       color: "#FBBF24", // Jaune
     });
 
-    return await sendChannelMessageIfNotDev(
+    const guild = await fetchGuild();
+    if (!guild) return;
+
+    // Récupérer le canal de proposition
+    const channel = findChannel(
+      guild.channels.cache,
       tournament.discordChannelName,
+      ChannelType.GuildText
+    );
+
+    if (!channel) {
+      logger.error("Canal de propositions introuvable");
+      return;
+    }
+
+    return await sendChannelMessageIfNotDev(
+      channel,
       {
         content: `**Le vote pour le MVP de ${tournament.name} est fermé** !`,
         embeds: [embed],

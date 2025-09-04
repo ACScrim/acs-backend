@@ -16,7 +16,6 @@ const mvpSchema = new mongoose.Schema({
 
 const clipSchema = new mongoose.Schema({
   url: { type: String, required: true },
-  title: { type: String },
   addedBy: { type: Schema.Types.ObjectId, ref: "Player" },
   addedAt: { type: Date, default: Date.now }
 })

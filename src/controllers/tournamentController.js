@@ -92,7 +92,7 @@ exports.createTournament = async (req, res) => {
     if (playersToAdd.length > 0) {
       const populatedTournament = await Tournament.findById(
         newTournament._id
-      ).populate("game players casters");
+      ).populate("game players casters clips clips.addedBy");
       // Commenter pour le dev
       await syncTournamentRoles(populatedTournament);
     }
@@ -398,7 +398,7 @@ exports.updateTournament = async (req, res) => {
 
     // Récupérer le tournoi mis à jour et peuplé pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players casters"
+      "game players waitlistPlayers teams.players casters clips clips.addedBy"
     );
 
     // Synchroniser les rôles de façon asynchrone
@@ -434,7 +434,7 @@ exports.deleteTournament = async (req, res) => {
 exports.getTournaments = async (req, res) => {
   try {
     const tournaments = await Tournament.find().populate(
-      "game players waitlistPlayers playerCap teams.players description casters"
+      "game players waitlistPlayers playerCap teams.players description casters clips clips.addedBy"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -475,7 +475,7 @@ exports.getTournamentsByGame = async (req, res) => {
   try {
     const { gameId } = req.params;
     const tournaments = await Tournament.find({ game: gameId }).populate(
-      "game players teams.players casters"
+      "game players teams.players casters clips clips.addedBy"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -633,7 +633,7 @@ exports.updateTournamentTeams = async (req, res) => {
 
     // Renvoyer le tournoi mis à jour (populé pour avoir toutes les données des équipes)
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players casters"
+      "game players waitlistPlayers teams.players casters clips clips.addedBy"
     );
 
     res.status(200).json({
@@ -753,7 +753,7 @@ exports.registerPlayer = async (req, res) => {
 
     // Populer les données pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players casters"
+      "game players waitlistPlayers teams.players casters clips clips.addedBy"
     );
 
     // Ajouter le rôle Discord au joueur s'il n'est pas en liste d'attente, mais de façon asynchrone
@@ -904,7 +904,7 @@ exports.unregisterPlayer = async (req, res) => {
 
     // Populer les données pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players"
+      "game players waitlistPlayers teams.players clips clips.addedBy"
     );
 
     // Retirer le rôle de façon asynchrone
@@ -975,7 +975,7 @@ exports.registerPlayerAsCaster = async (req, res) => {
     await tournament.save();
 
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players casters"
+      "game players waitlistPlayers teams.players casters clips clips.addedBy"
     );
 
     res.status(200).json(updatedTournament);
@@ -1008,7 +1008,7 @@ exports.unregisterPlayerAsCaster = async (req, res) => {
     await tournament.save();
 
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players casters"
+      "game players waitlistPlayers teams.players casters clips clips.addedBy"
     );
 
     res.status(200).json(updatedTournament);
@@ -1177,7 +1177,7 @@ exports.toggleTeamsPublication = async (req, res) => {
 
     // Populer les données pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players casters"
+      "game players waitlistPlayers teams.players casters clips clips.addedBy"
     );
 
     res.status(200).json({
@@ -1290,7 +1290,7 @@ exports.closeMvpVote = async (req, res) => {
 exports.addClipToTournament = async (req, res) => {
   try {
     const { id } = req.params;
-    const { clipUrl, clipTitle } = req.body;
+    const { clipUrl } = req.body;
     const user = req.user;
 
     const player = await Player.findOne({ userId: user._id });
@@ -1309,7 +1309,7 @@ exports.addClipToTournament = async (req, res) => {
     }
 
     // Ajouter le clip
-    tournament.clips.push({ url: formattedClipUrl, title: clipTitle, addedBy: player._id });
+    tournament.clips.push({ url: formattedClipUrl, addedBy: player._id });
     await tournament.save();
 
     res.status(201).json({
@@ -1357,6 +1357,12 @@ function formatClipUrl(url) {
   if (url.includes("youtu.be")) {
     const videoId = url.split("/").pop();
     return `https://www.youtube-nocookie.com/embed/${videoId}`;
+  }
+  if (url.includes("twitch.tv")) {
+    if (url.includes("/clip/")) {
+      const clipId = url.split("/clip/").pop().split("?")[0];
+      return `https://clips.twitch.tv/embed?clip=${clipId}&parent=${process.env.FRONTEND_URL.replace("https://", "").replace("http://", "").split(":")[0]}`;
+    }
   }
   return null;
 }

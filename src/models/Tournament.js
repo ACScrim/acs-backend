@@ -68,6 +68,7 @@ const tournamentSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  casters: [{ type: Schema.Types.ObjectId, ref: "Player" }]
 });
 
 const Tournament =

@@ -20,7 +20,9 @@ const {
   deleteAllTeams,
   toggleTeamsPublication,
   voteForMvp,
-  closeMvpVote, // Ajouter l'import de la nouvelle fonction
+  closeMvpVote,
+  registerPlayerAsCaster,
+  unregisterPlayerAsCaster, // Ajouter l'import de la nouvelle fonction
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const { create } = require("connect-mongo");
@@ -45,7 +47,9 @@ router.route("/:id/generate-teams").post(protect, admin, generateTeams);
 
 // Nouvelle route pour inscrire un joueur à un tournoi
 router.route("/:id/register").post(protect, registerPlayer);
+router.route("/:id/register-caster").post(protect, registerPlayerAsCaster);
 router.route("/:id/unregister").post(protect, unregisterPlayer); // Ajout de la route unregister
+router.route("/:id/unregister-caster").post(protect, unregisterPlayerAsCaster); // Route pour désinscrire un caster
 router.put("/:id/unmark-finished", unmarkTournamentAsFinished);
 // Nouvelle route pour mettre à jour le score d'une équipe
 router.route("/:id/teams/:teamId/score").put(protect, admin, updateTeamScore);

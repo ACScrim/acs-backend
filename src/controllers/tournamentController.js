@@ -92,7 +92,7 @@ exports.createTournament = async (req, res) => {
     if (playersToAdd.length > 0) {
       const populatedTournament = await Tournament.findById(
         newTournament._id
-      ).populate("game players");
+      ).populate("game players casters");
       // Commenter pour le dev
       await syncTournamentRoles(populatedTournament);
     }
@@ -398,7 +398,7 @@ exports.updateTournament = async (req, res) => {
 
     // Récupérer le tournoi mis à jour et peuplé pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players"
+      "game players waitlistPlayers teams.players casters"
     );
 
     // Synchroniser les rôles de façon asynchrone
@@ -434,7 +434,7 @@ exports.deleteTournament = async (req, res) => {
 exports.getTournaments = async (req, res) => {
   try {
     const tournaments = await Tournament.find().populate(
-      "game players waitlistPlayers playerCap teams.players description"
+      "game players waitlistPlayers playerCap teams.players description casters"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -450,7 +450,7 @@ exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers discordReminderDate privateReminderDate playerCap teams.players description mvps.player"
+      "game players waitlistPlayers discordReminderDate privateReminderDate playerCap teams.players description mvps.player casters"
     ).transform(async t => {
       t.mvps = await Promise.all(t.mvps.map(async mvp => ({
         ...mvp,
@@ -475,7 +475,7 @@ exports.getTournamentsByGame = async (req, res) => {
   try {
     const { gameId } = req.params;
     const tournaments = await Tournament.find({ game: gameId }).populate(
-      "game players teams.players"
+      "game players teams.players casters"
     );
     res.status(200).json(tournaments);
   } catch (error) {
@@ -633,7 +633,7 @@ exports.updateTournamentTeams = async (req, res) => {
 
     // Renvoyer le tournoi mis à jour (populé pour avoir toutes les données des équipes)
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players"
+      "game players waitlistPlayers teams.players casters"
     );
 
     res.status(200).json({
@@ -753,7 +753,7 @@ exports.registerPlayer = async (req, res) => {
 
     // Populer les données pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players"
+      "game players waitlistPlayers teams.players casters"
     );
 
     // Ajouter le rôle Discord au joueur s'il n'est pas en liste d'attente, mais de façon asynchrone
@@ -942,6 +942,83 @@ exports.unregisterPlayer = async (req, res) => {
   }
 };
 
+exports.registerPlayerAsCaster = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user)
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+
+    const player = await Player.findOne({ userId: userId });
+    if (!player) return res.status(404).json({ message: "Joueur non trouvé" });
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament)
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+
+    // Vérifier si le joueur est déjà inscrit (dans la liste principale ou d'attente)
+    const isPlayerRegistered =
+      tournament.players.includes(player._id) ||
+      (tournament.waitlistPlayers &&
+        tournament.waitlistPlayers.includes(player._id));
+
+    if (isPlayerRegistered) {
+      return res
+        .status(400)
+        .json({ message: "Joueur déjà inscrit au tournoi" });
+    }
+
+    tournament.casters.push(player._id);
+
+    await tournament.save();
+
+    const updatedTournament = await Tournament.findById(id).populate(
+      "game players waitlistPlayers teams.players casters"
+    );
+
+    res.status(200).json(updatedTournament);
+  } catch (error) {
+     res
+      .status(500)
+      .json({ message: "Erreur lors de l'inscription au tournoi en tant que caster", error });
+  }
+}
+
+exports.unregisterPlayerAsCaster = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user)
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    const player = await Player.findOne({ userId: userId });
+    if (!player) return res.status(404).json({ message: "Joueur non trouvé" });
+    const tournament = await Tournament.findById(id);
+    if (!tournament)
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    const casterIndex = tournament.casters.indexOf(player._id);
+    if (casterIndex === -1) {
+      return res.status(404).json({ message: "Joueur non inscrit en tant que caster" });
+    }
+
+    tournament.casters.splice(casterIndex, 1);
+    await tournament.save();
+
+    const updatedTournament = await Tournament.findById(id).populate(
+      "game players waitlistPlayers teams.players casters"
+    );
+
+    res.status(200).json(updatedTournament);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la désinscription du joueur en tant que caster", error });
+  }
+};
+
 // Check-in ou uncheck-in un joueur à un tournoi
 exports.checkInPlayer = async (req, res) => {
   try {
@@ -1100,7 +1177,7 @@ exports.toggleTeamsPublication = async (req, res) => {
 
     // Populer les données pour la réponse
     const updatedTournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers teams.players"
+      "game players waitlistPlayers teams.players casters"
     );
 
     res.status(200).json({

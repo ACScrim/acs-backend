@@ -22,7 +22,9 @@ const {
   voteForMvp,
   closeMvpVote,
   registerPlayerAsCaster,
-  unregisterPlayerAsCaster, // Ajouter l'import de la nouvelle fonction
+  unregisterPlayerAsCaster,
+  addClipToTournament,
+  deleteClipFromTournament,
 } = require("../controllers/tournamentController");
 const { protect, admin } = require("../middleware/authMiddleware");
 const { create } = require("connect-mongo");
@@ -68,4 +70,8 @@ router.route("/:id/delete-teams").delete(protect, admin, deleteAllTeams);
 
 router.route("/:id/vote-mvp").post(protect, voteForMvp);
 router.route("/:id/close-mvp-vote").post(protect, admin, closeMvpVote);
+
+// Clips routes
+router.route("/:id/clips").post(protect, addClipToTournament);
+router.route("/:id/clips/:clipId").delete(protect, admin, deleteClipFromTournament);
 module.exports = router;

@@ -450,7 +450,7 @@ exports.getTournamentById = async (req, res) => {
   try {
     const { id } = req.params;
     const tournament = await Tournament.findById(id).populate(
-      "game players waitlistPlayers discordReminderDate privateReminderDate playerCap teams.players description mvps.player casters"
+      "game players waitlistPlayers discordReminderDate privateReminderDate playerCap teams.players description mvps.player casters clips clips.addedBy"
     ).transform(async t => {
       t.mvps = await Promise.all(t.mvps.map(async mvp => ({
         ...mvp,
@@ -1285,4 +1285,78 @@ exports.closeMvpVote = async (req, res) => {
       error: err.message,
     });
   }
+}
+
+exports.addClipToTournament = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { clipUrl, clipTitle } = req.body;
+    const user = req.user;
+
+    const player = await Player.findOne({ userId: user._id });
+    if (!player) {
+      return res.status(404).json({ message: "Joueur non trouvé pour l'utilisateur" });
+    }
+
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+
+    const formattedClipUrl = formatClipUrl(clipUrl);
+    if (!formattedClipUrl) {
+      return res.status(400).json({ message: "URL de clip non prise en charge. Seules les URL YouTube sont acceptées." });
+    }
+
+    // Ajouter le clip
+    tournament.clips.push({ url: formattedClipUrl, title: clipTitle, addedBy: player._id });
+    await tournament.save();
+
+    res.status(201).json({
+      message: "Clip ajouté avec succès",
+    });
+  } catch (err) {
+    console.error("Erreur lors de l'ajout du clip au tournoi:", err);
+    res.status(500).json({
+      message: "Erreur lors de l'ajout du clip au tournoi",
+      error: err.message,
+    });
+  }
+}
+
+exports.deleteClipFromTournament = async (req, res) => {
+  try {
+    const { id, clipId } = req.params;
+    const tournament = await Tournament.findById(id);
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournoi non trouvé" });
+    }
+    const clipIndex = tournament.clips.findIndex(clip => clip._id.toString() === clipId);
+    if (clipIndex === -1) {
+      return res.status(404).json({ message: "Clip non trouvé dans ce tournoi" });
+    }
+    tournament.clips.splice(clipIndex, 1);
+    await tournament.save();
+    res.status(200).json({ message: "Clip supprimé avec succès" });
+  } catch (err) {
+    console.error("Erreur lors de la suppression du clip du tournoi:", err);
+    res.status(500).json({
+      message: "Erreur lors de la suppression du clip du tournoi",
+      error: err.message,
+    });
+  }
+}
+
+function formatClipUrl(url) {
+  if (url.includes("youtube.com")) {
+    if (url.includes("watch?v=")) {
+      url = url.replace("watch?v=", "embed/");
+    }
+    return url.replace("youtube.com", "www.youtube-nocookie.com")
+  }
+  if (url.includes("youtu.be")) {
+    const videoId = url.split("/").pop();
+    return `https://www.youtube-nocookie.com/embed/${videoId}`;
+  }
+  return null;
 }

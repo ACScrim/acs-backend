@@ -14,6 +14,13 @@ const mvpSchema = new mongoose.Schema({
   isMvp: { type: Boolean, default: false }
 });
 
+const clipSchema = new mongoose.Schema({
+  url: { type: String, required: true },
+  title: { type: String },
+  addedBy: { type: Schema.Types.ObjectId, ref: "Player" },
+  addedAt: { type: Date, default: Date.now }
+})
+
 const tournamentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   game: { type: mongoose.Schema.Types.ObjectId, ref: "Game", required: true },
@@ -68,7 +75,8 @@ const tournamentSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
-  casters: [{ type: Schema.Types.ObjectId, ref: "Player" }]
+  casters: [{ type: Schema.Types.ObjectId, ref: "Player" }],
+  clips: [clipSchema]
 });
 
 const Tournament =

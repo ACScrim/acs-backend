@@ -1,5 +1,5 @@
 const Cobblemon = require("../models/Cobblemon");
-
+const { Rcon } = require("rcon-client");
 
 async function retrieveMessage(channel, textInMessage, page) {
   try {
@@ -62,23 +62,6 @@ async function generateCobblemonContent(page, totalPages, playerStats) {
   };
 }
 
-async function start(c, l) {
-  client = c;
-  logger = l;
-  const channelId = process.env.COBBLEMON_CHANNEL_ID;
-  if (!channelId) {
-    logger.error("COBBLEMON_CHANNEL_ID is not set in environment variables.");
-    return;
-  }
-
-  updateMessages(channelId);
-  const updateInterval = 5 * 60 * 1000; // 5 minutes
-  setInterval(async () => {
-    updateMessages(channelId);
-  }, updateInterval);
-  logger.info("Cobblemon leaderboard updates started.");
-}
-
 async function updateMessages(channelId) {
   const cobblemonData = await Cobblemon.findOne();
   if (!cobblemonData) {
@@ -114,7 +97,85 @@ async function updateMessages(channelId) {
   }
 }
 
-module.exports = { start };
+function createRconClient() {
+  return new Rcon({
+    host: "localhost",
+    port: 25967,
+    password: "AcsServerRcon!",
+  });
+}
+
+async function connectRcon() {
+  try {
+    // Créer une nouvelle instance RCON à chaque tentative de connexion
+    rcon = createRconClient();
+
+    // Gérer les erreurs de connexion
+    rcon.on("error", (error) => {
+      rconReady = false;
+      setTimeout(connectRcon, RETRY_TIME);
+    });
+
+    await rcon.connect();
+    rconReady = true;
+  } catch (error) {
+    rconReady = false;
+    setTimeout(connectRcon, RETRY_TIME);
+  }
+};
+
+async function start(c, l) {
+  client = c;
+  logger = l;
+  const channelId = process.env.COBBLEMON_CHANNEL_ID;
+  if (!channelId) {
+    logger.error("COBBLEMON_CHANNEL_ID is not set in environment variables.");
+    return;
+  }
+
+  updateMessages(channelId);
+  const updateInterval = 5 * 60 * 1000; // 5 minutes
+  setInterval(async () => {
+    updateMessages(channelId);
+  }, updateInterval);
+  logger.info("Cobblemon leaderboard updates started.");
+
+  connectRcon();
+
+  client.on("messageCreate", async (message) => {
+    if (!rconReady) return;
+    if (message.channel.id === process.env.COBBLEMON_WL_CHANNEL_ID && !message.author.bot) {
+      try {
+        const contentSpaces = message.content.split(" ");
+        if (contentSpaces.length > 1) {
+          await message.delete();
+          return;
+        }
+        const authorMessagesCount = (await message.channel.messages.fetch({ limit: 100 })).filter(msg => msg.author.id === message.author.id).size;
+        if (authorMessagesCount > 1) {
+          await message.delete();
+          return;
+        }
+        const rconMessage = await rcon.send("easywhitelist add " + message.content);
+        await rcon.send("whitelist reload");
+        if (rconMessage.includes("Added") || rconMessage.includes("already")) {
+          await message.react("✅");
+        } else {
+          await message.react("❌");
+        }
+      } catch (error) {
+        await message.react("❌");
+        rconReady = false;
+        connectRcon();
+      }
+    }
+  });
+}
+
 const PLAYERS_PER_PAGE = 100;
 let client;
 let logger;
+let rconReady = false;
+let rcon;
+const RETRY_TIME = 10000;
+module.exports = { start, rconReady, rcon };

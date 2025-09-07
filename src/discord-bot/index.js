@@ -14,6 +14,7 @@ const Player = require("../models/Player");
 const GameProposal = require("../models/GameProposal");
 const User = require("../models/User");
 const { notifyTournamentReminder } = require("../services/notificationService");
+const { start } = require("./cobblemon");
 
 // Configuration initiale et variables d'environnement
 const token = process.env.DISCORD_TOKEN;
@@ -1703,7 +1704,9 @@ async function deleteEmbedProposal(proposal) {
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
 
+  if (!interaction.message.embeds[0].url) return;
   const proposalId = interaction.message.embeds[0].url.split("/").pop();
+  if (!proposalId) return;
 
   const proposal = await GameProposal.findOne({
     status: "approved",
@@ -1887,6 +1890,7 @@ client.on("ready", async () => {
 client
   .login(token)
   .then(() => logger.info("Connexion au bot Discord réussie"))
+  .then(() => start(client, logger))
   .catch((error) =>
     logger.error("Échec de la connexion au bot Discord:", error)
   );

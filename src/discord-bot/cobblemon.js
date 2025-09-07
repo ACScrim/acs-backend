@@ -98,10 +98,14 @@ async function updateMessages(channelId) {
 }
 
 function createRconClient() {
+  if (!process.env.RCON_HOST || !process.env.RCON_PORT || !process.env.RCON_PASSWORD) {
+    logger.error("RCON_HOST, RCON_PORT, or RCON_PASSWORD is not set in environment variables.");
+    return null;
+  }
   return new Rcon({
-    host: "localhost",
-    port: 25967,
-    password: "AcsServerRcon!",
+    host: process.env.RCON_HOST,
+    port: process.env.RCON_PORT,
+    password: process.env.RCON_PASSWORD,
   });
 }
 

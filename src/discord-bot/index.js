@@ -41,7 +41,8 @@ const logger = winston.createLogger({
         winston.format.colorize(),
         winston.format.printf(
           ({ timestamp, level, message, ...meta }) =>
-            `${timestamp} [${level}]: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ""
+            `${timestamp} [${level}]: ${message} ${
+              Object.keys(meta).length ? JSON.stringify(meta) : ""
             }`
         )
       ),
@@ -57,7 +58,14 @@ const logger = winston.createLogger({
 // ===========================================
 // SECTION: CONFIGURATION DU CLIENT DISCORD
 // ===========================================
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Ready! Logged in as ${readyClient.user.tag}`);
@@ -202,7 +210,7 @@ async function sendChannelMessageIfNotDev(channel, messageOptions, logMessage) {
     logger.info(`[DEV MODE] ${logMessage}`, {
       channel: channel?.name,
       content: messageOptions?.content?.substring(0, 100) + "...",
-      embedTitle: messageOptions?.embeds?.[0]?.data?.title
+      embedTitle: messageOptions?.embeds?.[0]?.data?.title,
     });
     return true;
   }
@@ -222,7 +230,7 @@ async function sendDirectMessageIfNotDev(member, messageOptions, logMessage) {
     logger.info(`[DEV MODE] ${logMessage}`, {
       user: member?.user?.username,
       content: messageOptions?.content?.substring(0, 100) + "...",
-      embedTitle: messageOptions?.embeds?.[0]?.data?.title
+      embedTitle: messageOptions?.embeds?.[0]?.data?.title,
     });
     return true;
   }
@@ -370,7 +378,10 @@ async function sendDirectMessage(player, embed, messageContent) {
     const sent = await sendDirectMessageIfNotDev(
       member,
       { content: messageContent, embeds: [embed] },
-      `Message privé à ${player.username}: ${messageContent.substring(0, 50)}...`
+      `Message privé à ${player.username}: ${messageContent.substring(
+        0,
+        50
+      )}...`
     );
 
     if (sent) {
@@ -382,7 +393,9 @@ async function sendDirectMessage(player, embed, messageContent) {
     return false;
   } catch (error) {
     logger.error(
-      `Erreur lors de l'envoi d'un message à ${player?.username || "joueur inconnu"}:`,
+      `Erreur lors de l'envoi d'un message à ${
+        player?.username || "joueur inconnu"
+      }:`,
       error
     );
     return false;
@@ -510,7 +523,8 @@ const sendCheckInReminders = async (tournament) => {
       }
     } catch (error) {
       logger.error(
-        `Erreur lors de l'envoi du rappel à ${player?.username || player?._id || "joueur inconnu"
+        `Erreur lors de l'envoi du rappel à ${
+          player?.username || player?._id || "joueur inconnu"
         }:`,
         error
       );
@@ -604,7 +618,7 @@ const sendTournamentReminder = async (tournament) => {
       );
 
       if (sent) {
-        const tournamentWithPlayers = await tournament.populate('players');
+        const tournamentWithPlayers = await tournament.populate("players");
 
         await notifyTournamentReminder(
           tournament,
@@ -757,29 +771,42 @@ const updateTournamentSignupMessage = async (tournament) => {
 
         // En mode dev, on simule la modification
         if (process.env.ENV === "dev") {
-          logger.info(`[DEV MODE] Simulation de modification du message d'inscription pour ${tournament.name}`);
+          logger.info(
+            `[DEV MODE] Simulation de modification du message d'inscription pour ${tournament.name}`
+          );
           return true;
         }
 
         await existingMessage.edit({
-          content: `**${tournament.name}** - Liste des inscriptions mise à jour <t:${Math.floor(Date.now() / 1000)}:R>`,
+          content: `**${
+            tournament.name
+          }** - Liste des inscriptions mise à jour <t:${Math.floor(
+            Date.now() / 1000
+          )}:R>`,
           embeds: [embed],
         });
 
-        logger.info(`[Inscription] Message existant mis à jour pour ${tournament.name}`);
+        logger.info(
+          `[Inscription] Message existant mis à jour pour ${tournament.name}`
+        );
         return true;
       } catch (editError) {
-        logger.error(`[Inscription] Échec de la modification du message:`, editError);
+        logger.error(
+          `[Inscription] Échec de la modification du message:`,
+          editError
+        );
       }
     } else {
-      logger.info(`[Inscription] Aucun message existant trouvé pour ${tournament.name}, création d'un nouveau`);
+      logger.info(
+        `[Inscription] Aucun message existant trouvé pour ${tournament.name}, création d'un nouveau`
+      );
     }
 
     // Créer un nouveau message si échec de la modification ou message inexistant
     const newMessage = await sendChannelMessageIfNotDev(
       targetChannel,
       {
-        content: `📣 **INSCRIPTIONS OUVERTES: ${tournament.name}**`,
+        content: `📣 @everyone **INSCRIPTIONS OUVERTES: ${tournament.name}**`,
         embeds: [embed],
       },
       `Nouveau message d'inscription pour ${tournament.name}`
@@ -794,7 +821,10 @@ const updateTournamentSignupMessage = async (tournament) => {
     logger.info(`[Inscription] Nouveau message créé pour ${tournament.name}`);
     return true;
   } catch (error) {
-    logger.error(`[Inscription] Erreur lors de la mise à jour du message:`, error);
+    logger.error(
+      `[Inscription] Erreur lors de la mise à jour du message:`,
+      error
+    );
     return false;
   }
 };
@@ -929,7 +959,8 @@ async function addTournamentRole(player, tournament) {
     }
   } catch (error) {
     logger.error(
-      `Erreur lors de l'ajout du rôle au joueur ${player?.username || "inconnu"
+      `Erreur lors de l'ajout du rôle au joueur ${
+        player?.username || "inconnu"
       }:`,
       error
     );
@@ -999,7 +1030,8 @@ async function removeTournamentRole(player, tournament) {
     }
   } catch (error) {
     logger.error(
-      `Erreur lors du retrait du rôle au joueur ${player?.username || "inconnu"
+      `Erreur lors du retrait du rôle au joueur ${
+        player?.username || "inconnu"
       }:`,
       error
     );
@@ -1803,7 +1835,8 @@ const notifyMvpVoteOpen = async (tournament) => {
   try {
     const embed = createEmbed({
       title: `🏆 Votez pour le MVP de ${tournament.name}!`,
-      description: "Le vote pour le MVP est maintenant ouvert! Utilisez les boutons ci-dessous pour voter.",
+      description:
+        "Le vote pour le MVP est maintenant ouvert! Utilisez les boutons ci-dessous pour voter.",
       color: "#FBBF24", // Jaune
     });
 
@@ -1831,17 +1864,26 @@ const notifyMvpVoteOpen = async (tournament) => {
       `Notification ouverture vote MVP: ${tournament.name} dans #${tournament.discordChannelName}`
     );
   } catch (error) {
-    logger.error(`Erreur globale lors de la notification de l'ouverture du vote MVP:`, error);
+    logger.error(
+      `Erreur globale lors de la notification de l'ouverture du vote MVP:`,
+      error
+    );
     return false;
   }
 };
 
 const notifyMvpWinner = async (tournament) => {
-  const mvps = tournament.mvps.filter(mvp => mvp.isMvp);
+  const mvps = tournament.mvps.filter((mvp) => mvp.isMvp);
   try {
     const embed = createEmbed({
-      title: mvps.length > 1 ? `🏆 Les MVPs de ${tournament.name} sont ${mvps.map(mvp => mvp.player.username).join(", ")}!` : `🏆 Le MVP de ${tournament.name} est ${mvps[0].player.username}!`,
-      description: mvps.length > 1 ? "Félicitations aux MVPs!" : "Félicitations au MVP!",
+      title:
+        mvps.length > 1
+          ? `🏆 Les MVPs de ${tournament.name} sont ${mvps
+              .map((mvp) => mvp.player.username)
+              .join(", ")}!`
+          : `🏆 Le MVP de ${tournament.name} est ${mvps[0].player.username}!`,
+      description:
+        mvps.length > 1 ? "Félicitations aux MVPs!" : "Félicitations au MVP!",
       color: "#FBBF24", // Jaune
     });
 
@@ -1869,10 +1911,13 @@ const notifyMvpWinner = async (tournament) => {
       `Notification fermeture vote MVP: ${tournament.name} dans #${tournament.discordChannelName}`
     );
   } catch (error) {
-    logger.error(`Erreur globale lors de la notification de la fermeture du vote MVP:`, error);
+    logger.error(
+      `Erreur globale lors de la notification de la fermeture du vote MVP:`,
+      error
+    );
     return false;
   }
-}
+};
 
 client.on("ready", async () => {
   await sendPropositionEmbed();
@@ -1918,5 +1963,5 @@ module.exports = {
   sendChannelMessageIfNotDev,
   sendDirectMessageIfNotDev,
   notifyMvpVoteOpen,
-  notifyMvpWinner
+  notifyMvpWinner,
 };

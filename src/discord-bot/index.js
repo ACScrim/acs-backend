@@ -21,7 +21,7 @@ const token = process.env.DISCORD_TOKEN;
 const guildId = process.env.DISCORD_GUILD_ID || "1330973733929615420";
 const parentChannelId =
   process.env.DISCORD_PARENT_CHANNEL_ID || "1330973733929615424";
-const channelsToKeep = ["1351248026491949157", "1330973733929615426"];
+const channelsToKeep = ["1351248026491949157", "1330973733929615426", "1442599734681538712"];
 
 // ===========================================
 // SECTION: CONFIGURATION DU LOGGER
